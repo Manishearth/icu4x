@@ -66,6 +66,7 @@ impl UtcOffset {
 }
 
 #[derive(Debug)]
+#[derive(yoke::Yokeable)]
 /// The primary type containing parsed ZoneInfo64 data
 pub struct ZoneInfo64<'a> {
     // Invariant: non-empty
@@ -78,6 +79,7 @@ pub struct ZoneInfo64<'a> {
 }
 
 #[derive(Debug, Clone)]
+#[derive(yoke::Yokeable)]
 enum TzZone<'a> {
     // The rule data is boxed here due to the large size difference between the
     // `TzDataRuleData` struct and `u32`. It's not strictly necessary.
@@ -86,6 +88,7 @@ enum TzZone<'a> {
 }
 
 #[derive(Clone)]
+#[derive(yoke::Yokeable)]
 struct TzZoneData<'a> {
     /// Transitions before the epoch of i32::MIN
     trans_pre32: &'a [(i32, i32)],

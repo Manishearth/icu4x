@@ -4023,6 +4023,7 @@ dependencies = [
  "potential_utf",
  "resb",
  "serde",
+ "yoke",
 ]
 
 [[package]]

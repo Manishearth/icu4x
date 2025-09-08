@@ -30,6 +30,7 @@ serde = { workspace = true, features = ["derive"] }
 calendrical_calculations = { workspace = true }
 
 chrono = { version = "0.4", optional = true }
+yoke = { workspace = true, optional = true, features = ["derive"] }
 
 [dev-dependencies]
 chrono-tz = "0.10.4"
@@ -38,3 +39,4 @@ jiff = { version = "0.2.15", default-features = false, features = ["tzdb-bundle-
 
 [features]
 chrono = ["dep:chrono"]
+yoke = ["dep:yoke"]

@@ -45,9 +45,11 @@ def extract_changelog(body):
     """Extracts the '## Changelog' section from the PR body."""
     # Matches a header like '## Changelog' or '## Changelog (N/A)'
     # Captures until the next header starting with '#' or the end of the body.
-    pattern = re.compile(r"(?im)^#+\s*Changelog.*(?:\r?\n)+(.*?)(?=\r?\n#+\s+|$)", re.DOTALL)
+    pattern = re.compile(r"(?im)^#+\s*Changelog[^\n]*(?:\n)?(.*?)(?=\r?\n#+\s+|\Z)", re.DOTALL)
     match = pattern.search(body)
     if match:
+        if "N/A" in match.group(0).strip().partition('\n')[0]:
+            return None
         content = match.group(1).strip()
         if content:
             return content
@@ -64,6 +66,7 @@ def main():
         return
 
     processed_prs = set()
+    none_prs = []
 
     for commit_hash in commits:
         pr_info = get_pr_info(commit_hash)
@@ -78,6 +81,10 @@ def main():
             url = pr_info['url']
             body = pr_info['body'] or ""
             changelog = extract_changelog(body)
+
+            if not changelog:
+                none_prs += [(title, url)]
+                continue;
 
             print(f"## {title}")
             print()
@@ -94,6 +101,10 @@ def main():
             print()
             print("NO PR FOUND / NO CHANGELOG FOUND")
             print()
+
+    print("# N/A PRs")
+    for title, url in none_prs:
+        print(" - [%s](%s)" % (title, url))
 
 if __name__ == "__main__":
     main()

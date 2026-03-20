@@ -25,7 +25,7 @@ DateDuration icu4x_DateDuration_for_months_mv1(int32_t months);
 
 DateDuration icu4x_DateDuration_for_weeks_mv1(int32_t weeks);
 
-DateDuration icu4x_DateDuration_for_days_mv1(int64_t days);
+DateDuration icu4x_DateDuration_for_days_mv1(int32_t days);
 
 
 

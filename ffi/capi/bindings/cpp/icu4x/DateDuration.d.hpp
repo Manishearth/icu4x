@@ -24,7 +24,7 @@ namespace capi {
       uint32_t years;
       uint32_t months;
       uint32_t weeks;
-      uint64_t days;
+      uint32_t days;
     };
 
     typedef struct DateDuration_option {union { DateDuration ok; }; bool is_ok; } DateDuration_option;
@@ -41,7 +41,7 @@ struct DateDuration {
     uint32_t years;
     uint32_t months;
     uint32_t weeks;
-    uint64_t days;
+    uint32_t days;
 
   /**
    * Creates a new {@link DateDuration} from an ISO 8601 string.
@@ -76,7 +76,7 @@ struct DateDuration {
    *
    * See the [Rust documentation for `for_days`](https://docs.rs/icu/2.1.1/icu/calendar/types/struct.DateDuration.html#method.for_days) for more information.
    */
-  inline static icu4x::DateDuration for_days(int64_t days);
+  inline static icu4x::DateDuration for_days(int32_t days);
 
     inline icu4x::capi::DateDuration AsFFI() const;
     inline static icu4x::DateDuration FromFFI(icu4x::capi::DateDuration c_struct);

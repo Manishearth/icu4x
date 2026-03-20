@@ -12,7 +12,7 @@ final class _DateDurationFfi extends ffi.Struct {
   external int months;
   @ffi.Uint32()
   external int weeks;
-  @ffi.Uint64()
+  @ffi.Uint32()
   external int days;
 }
 
@@ -143,7 +143,7 @@ external _DateDurationFfi _icu4x_DateDuration_for_months_mv1(int months);
 external _DateDurationFfi _icu4x_DateDuration_for_weeks_mv1(int weeks);
 
 @_DiplomatFfiUse('icu4x_DateDuration_for_days_mv1')
-@ffi.Native<_DateDurationFfi Function(ffi.Int64)>(isLeaf: true, symbol: 'icu4x_DateDuration_for_days_mv1')
+@ffi.Native<_DateDurationFfi Function(ffi.Int32)>(isLeaf: true, symbol: 'icu4x_DateDuration_for_days_mv1')
 // ignore: non_constant_identifier_names
 external _DateDurationFfi _icu4x_DateDuration_for_days_mv1(int days);
 

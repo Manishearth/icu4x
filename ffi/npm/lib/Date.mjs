@@ -607,7 +607,7 @@ export class Date {
     tryUntilWithOptions(other, options) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
-        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 25, 8, true);
+        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 21, 4, true);
 
 
         const result = wasm.icu4x_Date_try_until_with_options_mv1(diplomatReceive.buffer, this.ffiValue, other.ffiValue, DateDifferenceOptions._fromSuppliedValue(diplomatRuntime.internalConstructor, options)._intoFFI(diplomatRuntime.FUNCTION_PARAM_ALLOC.alloc(DateDifferenceOptions._sizeBytes), functionCleanupArena, {}, false));

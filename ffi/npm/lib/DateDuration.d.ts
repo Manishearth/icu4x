@@ -7,7 +7,7 @@ export type DateDuration_obj = {
     years: number;
     months: number;
     weeks: number;
-    days: bigint;
+    days: number;
 };
 
 
@@ -24,8 +24,8 @@ export class DateDuration {
     set months(value: number);
     get weeks(): number;
     set weeks(value: number);
-    get days(): bigint;
-    set days(value: bigint);
+    get days(): number;
+    set days(value: number);
     /** @internal */
     static fromFields(structObj : DateDuration_obj) : DateDuration;
 
@@ -69,5 +69,5 @@ export class DateDuration {
      *
      * See the [Rust documentation for `for_days`](https://docs.rs/icu/2.1.1/icu/calendar/types/struct.DateDuration.html#method.for_days) for more information.
      */
-    static forDays(days: bigint): DateDuration;
+    static forDays(days: number): DateDuration;
 }

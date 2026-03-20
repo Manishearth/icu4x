@@ -973,11 +973,7 @@ impl<C: DateFieldsResolver> ArithmeticDate<C> {
         // at a time, so let's pre-guess a year delta that is guaranteed to not
         // surpass.
         let year_diff = other.year().to_extended_year() - self.year().to_extended_year();
-        let min_years = if year_diff == 0 {
-            0
-        } else {
-            year_diff - sign
-        };
+        let min_years = if year_diff == 0 { 0 } else { year_diff - sign };
 
         // clippy rejects: debug_assert!(!surpasses_checker.surpasses_months(min_months));
         #[cfg(debug_assertions)]

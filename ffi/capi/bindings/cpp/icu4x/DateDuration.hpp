@@ -28,7 +28,7 @@ namespace capi {
 
     icu4x::capi::DateDuration icu4x_DateDuration_for_weeks_mv1(int32_t weeks);
 
-    icu4x::capi::DateDuration icu4x_DateDuration_for_days_mv1(int64_t days);
+    icu4x::capi::DateDuration icu4x_DateDuration_for_days_mv1(int32_t days);
 
     } // extern "C"
 } // namespace capi
@@ -54,7 +54,7 @@ inline icu4x::DateDuration icu4x::DateDuration::for_weeks(int32_t weeks) {
     return icu4x::DateDuration::FromFFI(result);
 }
 
-inline icu4x::DateDuration icu4x::DateDuration::for_days(int64_t days) {
+inline icu4x::DateDuration icu4x::DateDuration::for_days(int32_t days) {
     auto result = icu4x::capi::icu4x_DateDuration_for_days_mv1(days);
     return icu4x::DateDuration::FromFFI(result);
 }

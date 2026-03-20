@@ -48,7 +48,7 @@ pub mod ffi {
         pub years: u32,
         pub months: u32,
         pub weeks: u32,
-        pub days: u64,
+        pub days: u32,
     }
 
     impl DateDuration {
@@ -89,7 +89,7 @@ pub mod ffi {
         /// Returns a new [`DateDuration`] representing a number of days.
         #[diplomat::rust_link(icu::calendar::types::DateDuration::for_days, FnInStruct)]
         #[diplomat::attr(all(supports = fallible_constructors, supports = named_constructors), named_constructor)]
-        pub fn for_days(days: i64) -> DateDuration {
+        pub fn for_days(days: i32) -> DateDuration {
             icu_calendar::types::DateDuration::for_days(days).into()
         }
     }

@@ -11,7 +11,7 @@ internal interface DateDurationLib: Library {
     fun icu4x_DateDuration_for_years_mv1(years: Int): DateDurationNative
     fun icu4x_DateDuration_for_months_mv1(months: Int): DateDurationNative
     fun icu4x_DateDuration_for_weeks_mv1(weeks: Int): DateDurationNative
-    fun icu4x_DateDuration_for_days_mv1(days: Long): DateDurationNative
+    fun icu4x_DateDuration_for_days_mv1(days: Int): DateDurationNative
 }
 
 internal class DateDurationNative: Structure(), Structure.ByValue {
@@ -24,7 +24,7 @@ internal class DateDurationNative: Structure(), Structure.ByValue {
     @JvmField
     internal var weeks: FFIUint32 = FFIUint32();
     @JvmField
-    internal var days: FFIUint64 = FFIUint64();
+    internal var days: FFIUint32 = FFIUint32();
 
     // Define the fields of the struct
     override fun getFieldOrder(): List<String> {
@@ -75,7 +75,7 @@ internal class OptionDateDurationNative constructor(): Structure(), Structure.By
 
 /** See the [Rust documentation for `DateDuration`](https://docs.rs/icu/2.1.1/icu/calendar/types/struct.DateDuration.html) for more information.
 */
-class DateDuration (var isNegative: Boolean, var years: UInt, var months: UInt, var weeks: UInt, var days: ULong) {
+class DateDuration (var isNegative: Boolean, var years: UInt, var months: UInt, var weeks: UInt, var days: UInt) {
     companion object {
 
         internal val libClass: Class<DateDurationLib> = DateDurationLib::class.java
@@ -87,7 +87,7 @@ class DateDuration (var isNegative: Boolean, var years: UInt, var months: UInt, 
             val years: UInt = nativeStruct.years.toUInt()
             val months: UInt = nativeStruct.months.toUInt()
             val weeks: UInt = nativeStruct.weeks.toUInt()
-            val days: ULong = nativeStruct.days.toULong()
+            val days: UInt = nativeStruct.days.toUInt()
 
             return DateDuration(isNegative, years, months, weeks, days)
         }
@@ -156,7 +156,7 @@ class DateDuration (var isNegative: Boolean, var years: UInt, var months: UInt, 
         *
         *See the [Rust documentation for `for_days`](https://docs.rs/icu/2.1.1/icu/calendar/types/struct.DateDuration.html#method.for_days) for more information.
         */
-        fun forDays(days: Long): DateDuration {
+        fun forDays(days: Int): DateDuration {
             
             val returnVal = lib.icu4x_DateDuration_for_days_mv1(days);
             val returnStruct = DateDuration.fromNative(returnVal)
@@ -169,7 +169,7 @@ class DateDuration (var isNegative: Boolean, var years: UInt, var months: UInt, 
         native.years = FFIUint32(this.years)
         native.months = FFIUint32(this.months)
         native.weeks = FFIUint32(this.weeks)
-        native.days = FFIUint64(this.days)
+        native.days = FFIUint32(this.days)
         return native
     }
 

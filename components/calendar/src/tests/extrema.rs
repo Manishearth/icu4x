@@ -67,9 +67,7 @@ fn nudge_duration_by_unit(
         DateDurationUnit::Years => duration.years = duration.years.saturating_add_signed(value),
         DateDurationUnit::Months => duration.months = duration.months.saturating_add_signed(value),
         DateDurationUnit::Weeks => duration.weeks = duration.weeks.saturating_add_signed(value),
-        DateDurationUnit::Days => {
-            duration.days = duration.days.saturating_add_signed(value)
-        }
+        DateDurationUnit::Days => duration.days = duration.days.saturating_add_signed(value),
     }
     duration
 }

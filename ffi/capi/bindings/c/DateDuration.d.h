@@ -16,7 +16,7 @@ typedef struct DateDuration {
   uint32_t years;
   uint32_t months;
   uint32_t weeks;
-  uint64_t days;
+  uint32_t days;
 } DateDuration;
 
 typedef struct DateDuration_option {union { DateDuration ok; }; bool is_ok; } DateDuration_option;

@@ -422,7 +422,7 @@ export class IsoDate {
     untilWithOptions(other, options) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
-        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 24, 8, false);
+        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 20, 4, false);
 
 
         const result = wasm.icu4x_IsoDate_until_with_options_mv1(diplomatReceive.buffer, this.ffiValue, other.ffiValue, DateDifferenceOptions._fromSuppliedValue(diplomatRuntime.internalConstructor, options)._intoFFI(diplomatRuntime.FUNCTION_PARAM_ALLOC.alloc(DateDifferenceOptions._sizeBytes), functionCleanupArena, {}, false));

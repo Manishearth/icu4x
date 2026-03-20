@@ -101,12 +101,12 @@ export class DateDuration {
     }
 
     static get _sizeBytes() {
-        return 24;
+        return 20;
     }
 
     /// Currently unused, we may want to use later on though:
     static get _sizeAlign() {
-        return 8;
+        return 4;
     }
 
     static _fromSuppliedValue(internalConstructor, obj) {
@@ -131,7 +131,7 @@ export class DateDuration {
         diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 4, this.#years, Uint32Array);
         diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 8, this.#months, Uint32Array);
         diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 12, this.#weeks, Uint32Array);
-        diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 16, this.#days, BigUint64Array);
+        diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 16, this.#days, Uint32Array);
     }
 
     // This struct contains borrowed fields, so this takes in a list of
@@ -152,7 +152,7 @@ export class DateDuration {
         structObj.months = monthsDeref;
         const weeksDeref = (new Uint32Array(wasm.memory.buffer, ptr + 12, 1))[0];
         structObj.weeks = weeksDeref;
-        const daysDeref = (new BigUint64Array(wasm.memory.buffer, ptr + 16, 1))[0];
+        const daysDeref = (new Uint32Array(wasm.memory.buffer, ptr + 16, 1))[0];
         structObj.days = daysDeref;
 
         return new DateDuration(structObj);
@@ -168,7 +168,7 @@ export class DateDuration {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
         const vSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str8(wasm, v)));
-        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 25, 8, true);
+        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 21, 4, true);
 
 
         const result = wasm.icu4x_DateDuration_from_string_mv1(diplomatReceive.buffer, vSlice.ptr);
@@ -195,7 +195,7 @@ export class DateDuration {
      * See the [Rust documentation for `for_years`](https://docs.rs/icu/2.1.1/icu/calendar/types/struct.DateDuration.html#method.for_years) for more information.
      */
     static forYears(years) {
-        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 24, 8, false);
+        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 20, 4, false);
 
 
         const result = wasm.icu4x_DateDuration_for_years_mv1(diplomatReceive.buffer, years);
@@ -216,7 +216,7 @@ export class DateDuration {
      * See the [Rust documentation for `for_months`](https://docs.rs/icu/2.1.1/icu/calendar/types/struct.DateDuration.html#method.for_months) for more information.
      */
     static forMonths(months) {
-        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 24, 8, false);
+        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 20, 4, false);
 
 
         const result = wasm.icu4x_DateDuration_for_months_mv1(diplomatReceive.buffer, months);
@@ -237,7 +237,7 @@ export class DateDuration {
      * See the [Rust documentation for `for_weeks`](https://docs.rs/icu/2.1.1/icu/calendar/types/struct.DateDuration.html#method.for_weeks) for more information.
      */
     static forWeeks(weeks) {
-        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 24, 8, false);
+        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 20, 4, false);
 
 
         const result = wasm.icu4x_DateDuration_for_weeks_mv1(diplomatReceive.buffer, weeks);
@@ -258,7 +258,7 @@ export class DateDuration {
      * See the [Rust documentation for `for_days`](https://docs.rs/icu/2.1.1/icu/calendar/types/struct.DateDuration.html#method.for_days) for more information.
      */
     static forDays(days) {
-        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 24, 8, false);
+        const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 20, 4, false);
 
 
         const result = wasm.icu4x_DateDuration_for_days_mv1(diplomatReceive.buffer, days);

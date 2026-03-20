@@ -121,7 +121,7 @@ pub struct DateDuration {
     /// The number of weeks
     pub weeks: u32,
     /// The number of days
-    pub days: u64,
+    pub days: u32,
 }
 
 impl DateDuration {
@@ -159,7 +159,7 @@ impl DateDuration {
         let mut years: u32 = 0;
         let mut months: u32 = 0;
         let mut weeks: u32 = 0;
-        let mut days: u64 = 0;
+        let mut days: u32 = 0;
 
         let mut seen_years = false;
         let mut seen_months = false;
@@ -219,7 +219,8 @@ impl DateDuration {
                     if seen_days {
                         return Err(DateDurationParseError::DuplicateUnit);
                     }
-                    days = value;
+                    days =
+                        u32::try_from(value).map_err(|_| DateDurationParseError::NumberOverflow)?;
                     seen_days = true;
                     s = rest;
                 }
@@ -264,7 +265,7 @@ impl DateDuration {
     }
 
     /// Returns a new [`DateDuration`] representing a number of days.
-    pub fn for_days(days: i64) -> Self {
+    pub fn for_days(days: i32) -> Self {
         Self {
             is_negative: days.is_negative(),
             days: days.unsigned_abs(),
@@ -274,21 +275,14 @@ impl DateDuration {
 
     /// Returns a new [`DateDuration`] representing a number of days
     /// represented as weeks and days
-    pub(crate) fn for_weeks_and_days(days: i64) -> Self {
-        let is_negative = days.is_negative();
-        let days = days.unsigned_abs();
-        let weeks = (days / 7) as u32;
+    pub(crate) fn for_weeks_and_days(days: i32) -> Self {
+        let weeks = days / 7;
         let days = days % 7;
-        Self {
-            is_negative,
-            weeks,
-            days,
-            ..Default::default()
-        }
+        Self::from_signed_ymwd(0, 0, weeks, days)
     }
 
     /// Do NOT pass this function values of mixed signs!
-    pub(crate) fn from_signed_ymwd(years: i64, months: i64, weeks: i64, days: i64) -> Self {
+    pub(crate) fn from_signed_ymwd(years: i32, months: i32, weeks: i32, days: i32) -> Self {
         let is_negative = years.is_negative()
             || months.is_negative()
             || weeks.is_negative()
@@ -303,27 +297,9 @@ impl DateDuration {
         }
         Self {
             is_negative,
-            years: match u32::try_from(years.unsigned_abs()) {
-                Ok(x) => x,
-                Err(_) => {
-                    debug_assert!(false, "years out of range");
-                    u32::MAX
-                }
-            },
-            months: match u32::try_from(months.unsigned_abs()) {
-                Ok(x) => x,
-                Err(_) => {
-                    debug_assert!(false, "months out of range");
-                    u32::MAX
-                }
-            },
-            weeks: match u32::try_from(weeks.unsigned_abs()) {
-                Ok(x) => x,
-                Err(_) => {
-                    debug_assert!(false, "weeks out of range");
-                    u32::MAX
-                }
-            },
+            years: years.unsigned_abs(),
+            months: months.unsigned_abs(),
+            weeks: weeks.unsigned_abs(),
             days: days.unsigned_abs(),
         }
     }
@@ -350,32 +326,32 @@ impl DateDuration {
     }
 
     #[inline]
-    pub(crate) fn add_months_to(&self, month: u8) -> i64 {
+    pub(crate) fn add_months_to(&self, month: u8) -> i32 {
         if !self.is_negative {
-            i64::from(month) + i64::from(self.months)
+            (month as i32) + (self.months as i32)
         } else {
-            i64::from(month) - i64::from(self.months)
+            (month as i32) - (self.months as i32)
         }
     }
 
     #[inline]
-    pub(crate) fn add_weeks_and_days_to(&self, day: u8) -> i64 {
+    pub(crate) fn add_weeks_and_days_to(&self, day: u8) -> i32 {
         if !self.is_negative {
-            let day = i64::from(day) + i64::from(self.weeks) * 7;
+            let day = (day as i32) + (self.weeks as i32) * 7;
             match day.checked_add_unsigned(self.days) {
                 Some(x) => x,
                 None => {
                     debug_assert!(false, "{day} + {self:?} out of day range");
-                    i64::MAX
+                    i32::MAX
                 }
             }
         } else {
-            let day = i64::from(day) - i64::from(self.weeks) * 7;
+            let day = (day as i32) - (self.weeks as i32) * 7;
             match day.checked_sub_unsigned(self.days) {
                 Some(x) => x,
                 None => {
                     debug_assert!(false, "{day} - {self:?} out of day range");
-                    i64::MIN
+                    i32::MIN
                 }
             }
         }

@@ -13,7 +13,7 @@ use icu_calendar::{
 
 #[rustfmt::skip]
 #[allow(clippy::type_complexity)]
-const ISO_DATE_PAIRS: &[(&str, &str, u64, (u32, u64), (u32, u64), (u32, u32, u64))] = &[
+const ISO_DATE_PAIRS: &[(&str, &str, u32, (u32, u32), (u32, u32), (u32, u32, u32))] = &[
     //         d0,           d1, D,    (W, D),   (M, D),   (Y, M, D)
     ("2020-01-03", "2020-02-15", 43,   (6, 1),   (1, 12),  (0, 1, 12)),
     ("2020-01-31", "2020-06-30", 151,  (21, 4),  (4, 30),  (0, 4, 30)),
@@ -35,10 +35,10 @@ const ISO_DATE_PAIRS: &[(&str, &str, u64, (u32, u64), (u32, u64), (u32, u32, u64
 fn check<A>(
     d0: &Date<A>,
     d1: &Date<A>,
-    exp0: &u64,
-    exp1: &(u32, u64),
-    exp2: &(u32, u64),
-    exp3: &(u32, u32, u64),
+    exp0: &u32,
+    exp1: &(u32, u32),
+    exp2: &(u32, u32),
+    exp3: &(u32, u32, u32),
 ) where
     A: AsCalendar + Copy,
     <A as AsCalendar>::Calendar: Calendar<DateCompatibilityError = Infallible>,
@@ -129,8 +129,8 @@ fn check<A>(
     if is_negative {
         assert!(rd_diff.is_negative());
     }
-    assert_eq!(p0.days, rd_diff.unsigned_abs());
-    assert_eq!(p1.days + u64::from(p1.weeks) * 7, rd_diff.unsigned_abs());
+    assert_eq!(p0.days, rd_diff.unsigned_abs() as u32);
+    assert_eq!(p1.days + p1.weeks * 7, rd_diff.unsigned_abs() as u32);
 }
 
 #[test]
@@ -154,13 +154,13 @@ fn test_hebrew() {
 
     #[rustfmt::skip]
     #[allow(clippy::type_complexity)]
-    let cases: &[(&Date<Hebrew>, &Date<Hebrew>, u64, (u32, u64), (u32, u64), (u32, u32, u64))] = &[
+    let cases: &[(&Date<Hebrew>, &Date<Hebrew>, u32, (u32, u32), (u32, u32), (u32, u32, u32))] = &[
         (&m06z_20, &m05l_15, 348, (49, 5), (11, 25), (0, 11, 25)),
         (&m06z_20, &m05l_30, 363, (51, 6), (12, 10), (0, 12, 10)),
         (&m06z_20, &m06a_29, 392, (56, 0), (13, 9),  (1, 0, 9)),
         (&m06z_20, &m07a_10, 402, (57, 3), (13, 19), (1, 0, 19)),
-        (&m06z_20, &m06b_15, 733, (104,5), (24, 25), (1, 11, 25)),
-        (&m06z_20, &m07b_20, 767, (109,4), (26, 0),  (2, 1, 0)),
+        (&m06z_20, &m06b_15, 733, (104, 5), (24, 25), (1, 11, 25)),
+        (&m06z_20, &m07b_20, 767, (109, 4), (26, 0),  (2, 1, 0)),
 
         (&m05l_15, &m05l_30, 15,  (2, 1),  (0, 15),  (0, 0, 15)),
         (&m05l_15, &m06a_29, 44,  (6, 2),  (1, 14),  (0, 1, 14)),

@@ -67,7 +67,7 @@ impl DateFieldsResolver for Coptic {
     }
 
     #[inline]
-    fn min_months_from(_start: Self::YearInfo, years: i64) -> i64 {
+    fn min_months_from(_start: Self::YearInfo, years: i32) -> i32 {
         13 * years
     }
 

@@ -100,7 +100,7 @@ super::test_all_cals!(
                 years: years.unsigned_abs(),
                 months: months.unsigned_abs(),
                 weeks: weeks.unsigned_abs(),
-                days: days.unsigned_abs() as u64,
+                days: days.unsigned_abs(),
             }
         }
 
@@ -273,12 +273,12 @@ super::test_all_cals!(
                     let signed_months = duration.add_months_to(0);
                     let expected_rd = date
                         .try_added_with_options(
-                            DateDuration::for_months(signed_months as i32),
+                            DateDuration::for_months(signed_months),
                             add_constrain,
                         )
                         .unwrap()
                         .to_rata_die()
-                        + signed_months.signum();
+                        + i64::from(signed_months.signum());
                     assert_eq!(added_date.to_rata_die(), expected_rd, "{output}");
                     // Only add the snapshot if the duration was normalized
                     if *duration != calculated_duration {
@@ -296,7 +296,7 @@ super::test_all_cals!(
                         )
                         .unwrap()
                         .to_rata_die()
-                        + signed_years.signum() as i64;
+                        + i64::from(signed_years.signum());
                     assert_eq!(added_date.to_rata_die(), expected_rd, "{output}");
                     // Only add the snapshot if the duration was normalized
                     if *duration != calculated_duration {
@@ -312,7 +312,7 @@ super::test_all_cals!(
                         .try_added_with_options(year_month_duration, add_constrain)
                         .unwrap()
                         .to_rata_die()
-                        + if duration.is_negative { -1 } else { 1 } as i64;
+                        + if duration.is_negative { -1i64 } else { 1i64 };
                     assert_eq!(added_date.to_rata_die(), expected_rd, "{output}");
                     // Only add the snapshot if the duration was normalized
                     if *duration != calculated_duration {
@@ -359,7 +359,7 @@ super::test_all_cals!(
                     .try_until_with_options(&added_date, diff_options)
                     .unwrap();
                 assert_eq!(duration, calculated_duration);
-                assert_eq!(i, added_date.to_rata_die() - date.to_rata_die());
+                assert_eq!(i, (added_date.to_rata_die() - date.to_rata_die()) as i32);
                 assert!(!is_rejected, "should NOT reject");
             }
         }

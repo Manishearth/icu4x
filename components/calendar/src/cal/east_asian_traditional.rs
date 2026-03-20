@@ -611,7 +611,7 @@ impl<R: Rules> DateFieldsResolver for EastAsianTraditional<R> {
     }
 
     #[inline]
-    fn min_months_from(_start: Self::YearInfo, years: i64) -> i64 {
+    fn min_months_from(_start: Self::YearInfo, years: i32) -> i32 {
         // By Rules invariant
         12 * years + (years / 3)
     }
@@ -1216,8 +1216,8 @@ mod test {
                 (largest.to_extended_year() - smallest.to_extended_year() + 1) * 12 + num_leap;
             let approximated = EastAsianTraditional::<R>::min_months_from(
                 smallest,
-                (largest.to_extended_year() - smallest.to_extended_year()) as i64 + 1,
-            ) as i32;
+                (largest.to_extended_year() - smallest.to_extended_year()) + 1,
+            );
 
             println!(
                 "absolute error {}: {}",

@@ -26,7 +26,7 @@ pub struct DateDuration {
     pub years: u32,
     pub months: u32,
     pub weeks: u32,
-    pub days: u64,
+    pub days: u32,
 }
 
 impl From<DateDuration> for icu_calendar::types::DateDuration {

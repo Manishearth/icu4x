@@ -95,7 +95,7 @@ impl DateFieldsResolver for Ethiopian {
     }
 
     #[inline]
-    fn min_months_from(start: Self::YearInfo, years: i64) -> i64 {
+    fn min_months_from(start: Self::YearInfo, years: i32) -> i32 {
         Coptic::min_months_from(start, years)
     }
 

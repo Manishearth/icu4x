@@ -135,7 +135,7 @@ impl DateFieldsResolver for Hebrew {
     }
 
     #[inline]
-    fn min_months_from(_start: HebrewYear, years: i64) -> i64 {
+    fn min_months_from(_start: HebrewYear, years: i32) -> i32 {
         // The Hebrew Metonic cycle is 7 leap years every 19 years,
         // which comes out to 235 months per 19 years.
         //

@@ -67,7 +67,7 @@ The collation process occurs during the release process and is typically driven 
 
 The release driver gathers all changelog entries from the `## Changelog` sections of all PRs merged since the last release. This can be done by scraping PR descriptions via the GitHub API.
 
-`./tools/scripts/extract_changelog.py <revset>` will extract changelog entries from a list of ICU4X commits.
+`cargo run -p changelog` will extract changelog entries from a list of ICU4X commits, see the README in `tools/changelog` for more information.
 
 ### Manual Collation and Merging
 

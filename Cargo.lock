@@ -1600,7 +1600,7 @@ dependencies = [
 
 [[package]]
 name = "icu_datetime_data"
-version = "2.1.2"
+version = "2.1.1"
 
 [[package]]
 name = "icu_decimal"
@@ -1764,7 +1764,7 @@ dependencies = [
 
 [[package]]
 name = "icu_locale_data"
-version = "2.1.2"
+version = "2.1.1"
 
 [[package]]
 name = "icu_normalizer"
@@ -1854,7 +1854,7 @@ dependencies = [
 
 [[package]]
 name = "icu_properties_data"
-version = "2.1.2"
+version = "2.1.1"
 
 [[package]]
 name = "icu_provider"
@@ -1964,7 +1964,7 @@ dependencies = [
 
 [[package]]
 name = "icu_provider_registry"
-version = "2.1.2"
+version = "2.1.1"
 dependencies = [
  "icu",
  "icu_provider",
@@ -1972,7 +1972,7 @@ dependencies = [
 
 [[package]]
 name = "icu_provider_source"
-version = "2.1.2"
+version = "2.1.1"
 dependencies = [
  "elsa",
  "flate2",
@@ -2011,7 +2011,7 @@ dependencies = [
 
 [[package]]
 name = "icu_segmenter"
-version = "2.1.2"
+version = "2.1.1"
 dependencies = [
  "core_maths",
  "criterion",

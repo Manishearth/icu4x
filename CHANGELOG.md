@@ -61,7 +61,7 @@ Fully filled in up to 43d4d6f154
         - General changes only
     - `icu_collections`
         - Add `CodePointInversionListAndStringList::contains_utf8` (unicode-org#7363)
-    - `icu_codepointtrie_builder`: `0.5.1 -> 0.6.1`
+    - `icu_codepointtrie_builder`: `0.5.1 -> 0.6.0`
         - (Breaking) Actually make `CodePointTrieBuilder` a builder type. This API has changed significantly, please look at the docs for the new API. (unicode-org#7581)
         - Remove `serde` dep from `icu_codepointtrie_builder` (unicode-org#7298)
         - Add more ways of specifying code point trie data. (unicode-org#7541)
@@ -95,7 +95,7 @@ Fully filled in up to 43d4d6f154
     - `icu_decimal`
         - Move `CompactDecimalFormatter` (experimental) to this crate (unicode-org#7565)
         - (Experimental) Consider numbering system in compact formatter (unicode-org#7543)
-    - `icu_experimental`: `0.4.0 -> ???`
+    - `icu_experimental`: `0.4.0 -> 0.5.0`
         - `compactdecimal`
             - Don't hallucinate patterns (unicode-org#7387)
             - Pack compact decimal data (unicode-org#7388)
@@ -141,7 +141,7 @@ Fully filled in up to 43d4d6f154
     - `icu_normalizer`
         - Move `harfbuzz-traits` implementations into component crates (unicode-org#7200)
         - Expose the UTS 46 virama check using UTS 46 data (unicode-org#7507)
-    - `icu_pattern`
+    - `icu_pattern`: `0.4.1 -> 0.4.2`
         - Create `SinglePlaceholderPattern::PASS_THROUGH` (unicode-org#7393)
             - New associated constant: `SinglePlaceholderPattern::PASS_THROUGH`
     - `icu_plurals`

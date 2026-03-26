@@ -186,7 +186,8 @@ super::test_all_cals!(
 
             for generous_duration in [generous_max_duration, generous_max_neg_duration] {
                 for overflow in [CONSTRAIN, REJECT] {
-                    assert!(start_date.try_added_with_options(generous_duration, overflow).is_err(), "Adding durations from the generously-large range should always fail (but never panic)");
+                    assert_eq!(start_date.try_added_with_options(generous_duration, overflow), Err(DateAddError::Overflow),
+                               "Adding durations from the generously-large range should always fail (but never panic)");
                 }
             }
         }

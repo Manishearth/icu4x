@@ -796,7 +796,12 @@ impl<C: DateFieldsResolver> ArithmeticDate<C> {
             return false;
         }
         // 1. Let _endOfMonth_ be BalanceNonISODate(_calendar_, _monthsAdded_.[[Year]], _monthsAdded_.[[Month]] + 1, 0).
-        let end_of_month = Self::new_balanced(y0, duration.add_months_to(m0) + 1, 0, cal);
+        let end_of_month = Self::new_balanced(
+            months_added.year,
+            i32::from(months_added.ordinal_month + 1),
+            0,
+            cal,
+        );
         // 1. Let _baseDay_ be _parts_.[[Day]].
         let base_day = parts.day();
         // 1. If _baseDay_ &le; _endOfMonth_.[[Day]], then

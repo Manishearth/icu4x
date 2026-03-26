@@ -327,6 +327,7 @@ impl DateDuration {
 
     #[inline]
     pub(crate) fn add_months_to(&self, month: u8) -> i32 {
+        debug_assert!(i32::try_from(self.months).is_ok());
         if !self.is_negative {
             i32::from(month) + (self.months as i32)
         } else {
@@ -336,6 +337,7 @@ impl DateDuration {
 
     #[inline]
     pub(crate) fn add_weeks_and_days_to(&self, day: u8) -> i32 {
+        debug_assert!(i32::try_from(self.weeks).is_ok());
         if !self.is_negative {
             let day = i32::from(day) + (self.weeks as i32) * 7;
             match day.checked_add_unsigned(self.days) {

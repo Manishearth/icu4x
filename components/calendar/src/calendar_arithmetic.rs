@@ -51,6 +51,14 @@ pub(crate) const VALID_RD_RANGE: RangeInclusive<RataDie> =
 /// use this check, and that these year numbers map to out-of-range values for every era.
 pub(crate) const GENEROUS_YEAR_RANGE: RangeInclusive<i32> = -1_040_000..=1_040_000;
 
+/// These are for early-checking durations in `ArithmeticDate::add`
+///
+/// They are crate-public so they can be used in tests, but should probably not be used elsewhere.
+pub(crate) const GENEROUS_MAX_YEARS: u32 =
+    (*GENEROUS_YEAR_RANGE.end() - *GENEROUS_YEAR_RANGE.start()) as u32;
+pub(crate) const GENEROUS_MAX_MONTHS: u32 = GENEROUS_MAX_YEARS * 13;
+pub(crate) const GENEROUS_MAX_DAYS: u32 = GENEROUS_MAX_MONTHS * 31;
+
 /// This is the year range all calendar specific computation can assume their data to be in.
 ///
 /// It is wider than [`GENEROUS_YEAR_RANGE`]: `GENEROUS_YEAR_RANGE` is used for checking user
@@ -848,16 +856,13 @@ impl<C: DateFieldsResolver> ArithmeticDate<C> {
         // this could also be handled by updating DateDuration::add_foo_to()
         // to return an error. However, that would lead to more error handling cluttering
         // surpasses().
-        const GENEROUS_MAX_YEARS: u32 =
-            (*GENEROUS_YEAR_RANGE.end() - *GENEROUS_YEAR_RANGE.start()) as u32;
-        const GENEROUS_MAX_MONTHS: u32 = GENEROUS_MAX_YEARS * 13;
-        const GENEROUS_MAX_DAYS: u64 = GENEROUS_MAX_MONTHS as u64 * 31;
 
         if duration.years > GENEROUS_MAX_YEARS
             || duration.months > GENEROUS_MAX_MONTHS
-            || (duration.weeks as u64)
+            || duration
+                .weeks
                 .saturating_mul(7)
-                .saturating_add(duration.days.into())
+                .saturating_add(duration.days)
                 > GENEROUS_MAX_DAYS
         {
             return Err(DateAddError::Overflow);

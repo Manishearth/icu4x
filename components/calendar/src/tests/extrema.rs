@@ -72,39 +72,39 @@ fn nudge_duration_by_unit(
     duration
 }
 
+const RDS_TO_TEST: &[RataDie] = &[
+    *VALID_RD_RANGE.start(),
+    VALID_RD_RANGE.start().add(1),
+    VALID_RD_RANGE.start().add(5),
+    VALID_RD_RANGE.start().add(100),
+    VALID_RD_RANGE.start().add(10000),
+    RataDie::new(-1000),
+    RataDie::new(0),
+    RataDie::new(1000),
+    VALID_RD_RANGE.end().add(-10000),
+    VALID_RD_RANGE.end().add(-100),
+    VALID_RD_RANGE.end().add(-5),
+    VALID_RD_RANGE.end().add(-1),
+    *VALID_RD_RANGE.end(),
+];
+
+const CONSTRAIN: DateAddOptions = DateAddOptions {
+    overflow: Some(Overflow::Constrain),
+};
+
+const REJECT: DateAddOptions = DateAddOptions {
+    overflow: Some(Overflow::Reject),
+};
+
 super::test_all_cals!(
     #[ignore] // slow
     fn check_added_extrema<C: Calendar + Copy>(cal: C) {
         let min_date = Date::from_rata_die(*VALID_RD_RANGE.start(), cal);
         let max_date = Date::from_rata_die(*VALID_RD_RANGE.end(), cal);
-        const RDS_TO_TEST: &[RataDie] = &[
-            *VALID_RD_RANGE.start(),
-            VALID_RD_RANGE.start().add(1),
-            VALID_RD_RANGE.start().add(5),
-            VALID_RD_RANGE.start().add(100),
-            VALID_RD_RANGE.start().add(10000),
-            RataDie::new(-1000),
-            RataDie::new(0),
-            RataDie::new(1000),
-            VALID_RD_RANGE.end().add(-10000),
-            VALID_RD_RANGE.end().add(-100),
-            VALID_RD_RANGE.end().add(-5),
-            VALID_RD_RANGE.end().add(-1),
-            *VALID_RD_RANGE.end(),
-        ];
-
-        let constrain = DateAddOptions {
-            overflow: Some(Overflow::Constrain),
-            ..Default::default()
-        };
-
-        let reject = DateAddOptions {
-            overflow: Some(Overflow::Reject),
-            ..Default::default()
-        };
 
         for start_date in RDS_TO_TEST {
             let start_date = Date::from_rata_die(*start_date, cal);
+
             for unit in [
                 DateDurationUnit::Years,
                 // This is very very slow right now
@@ -136,9 +136,9 @@ super::test_all_cals!(
                     (min_date, min_duration, min_duration_plus_one, "min"),
                     (max_date, max_duration, max_duration_plus_one, "max"),
                 ] {
-                    for overflow in [constrain, reject] {
+                    for overflow in [CONSTRAIN, REJECT] {
                         let added = start_date.try_added_with_options(duration_bound, overflow);
-                        if added.is_err() && overflow == reject {
+                        if added.is_err() && overflow == REJECT {
                             assert_ne!(added, Err(DateAddError::Overflow), "{start_date:?} + {duration_bound:?} should not produce overflow error in Reject mode");
                         } else {
                             assert_eq!(
@@ -149,7 +149,7 @@ super::test_all_cals!(
                         }
 
                         let added_plus_one = start_date.try_added_with_options(plus_one, overflow);
-                        if overflow == constrain {
+                        if overflow == CONSTRAIN {
                             assert_eq!(
                                 added_plus_one,
                                 Err(DateAddError::Overflow),
@@ -162,6 +162,31 @@ super::test_all_cals!(
                             );
                         }
                     }
+                }
+            }
+        }
+    }
+);
+
+super::test_all_cals!(
+    fn check_generous_duration<C: Calendar + Copy>(cal: C) {
+        let generous_max_duration = DateDuration {
+            is_negative: false,
+            years: crate::calendar_arithmetic::GENEROUS_MAX_YEARS,
+            months: crate::calendar_arithmetic::GENEROUS_MAX_MONTHS,
+            weeks: 0,
+            days: crate::calendar_arithmetic::GENEROUS_MAX_DAYS,
+        };
+
+        let mut generous_max_neg_duration = generous_max_duration;
+        generous_max_neg_duration.is_negative = true;
+
+        for start_date in RDS_TO_TEST {
+            let start_date = Date::from_rata_die(*start_date, cal);
+
+            for generous_duration in [generous_max_duration, generous_max_neg_duration] {
+                for overflow in [CONSTRAIN, REJECT] {
+                    assert!(start_date.try_added_with_options(generous_duration, overflow).is_err(), "Adding durations from the generously-large range should always fail (but never panic)");
                 }
             }
         }

@@ -7,6 +7,7 @@ use icu_properties::PropertyNamesLong;
 use icu_segmenter::options::WordBreakOptions;
 use icu_segmenter::GraphemeClusterSegmenter;
 use icu_segmenter::LineSegmenter;
+use icu_segmenter::LineSegmenterBorrowed;
 use icu_segmenter::SentenceSegmenter;
 use icu_segmenter::WordSegmenter;
 use std::char;
@@ -100,13 +101,12 @@ where
     }
 }
 
-fn line_break_test(file: &'static str) {
+fn line_break_test(file: &'static str, segmenter: LineSegmenterBorrowed) {
     let test_iter = TestContentIterator(
         std::io::BufReader::new(std::fs::File::open(file).unwrap())
             .lines()
             .map(|l| l.unwrap()),
     );
-    let segmenter = LineSegmenter::new_dictionary(Default::default());
     for (i, mut test) in test_iter.enumerate() {
         let s: String = test.utf8_vec.into_iter().collect();
         let iter = segmenter.segment_str(&s);
@@ -192,17 +192,17 @@ fn line_break_test(file: &'static str) {
 
 #[test]
 fn run_line_break_test() {
-    line_break_test("./tests/testdata/LineBreakTest.txt");
+    line_break_test("./tests/testdata/LineBreakTest.txt", LineSegmenter::new_for_non_complex_scripts(Default::default()));
 }
 
 #[test]
 fn run_line_break_extra_test() {
-    line_break_test("./tests/testdata/LineBreakExtraTest.txt");
+    line_break_test("./tests/testdata/LineBreakExtraTest.txt", LineSegmenter::new_dictionary(Default::default()));
 }
 
 #[test]
 fn run_line_break_random_test() {
-    line_break_test("./tests/testdata/LineBreakRandomTest.txt");
+    line_break_test("./tests/testdata/LineBreakRandomTest.txt", LineSegmenter::new_dictionary(Default::default()));
 }
 
 fn word_break_test(file: &'static str) {

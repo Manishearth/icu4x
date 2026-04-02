@@ -1287,7 +1287,7 @@ impl<'a, C: DateFieldsResolver> SurpassesChecker<'a, C> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cal::Coptic;
+    use crate::{cal::*, Date};
 
     #[test]
     fn test_ord() {
@@ -1328,7 +1328,6 @@ mod tests {
 
     #[test]
     fn test_validity_ranges() {
-        use crate::{cal::*, Date};
 
         #[rustfmt::skip]
         let lowest_years = [
@@ -1381,5 +1380,17 @@ mod tests {
         // All years are 21-bits
         assert!(-lowest_years.iter().copied().min().unwrap() < 1 << 20);
         assert!(highest_years.iter().copied().max().unwrap() < 1 << 20);
+    }
+
+    #[test]
+    fn test_from_fields_consistent_years() {
+        let mut fields = DateFields::default();
+        fields.extended_year = Some(0);
+        fields.era_year = Some(0);
+        fields.era = Some(b"be");
+        fields.ordinal_month = Some(1);
+        fields.day = Some(1);
+        let date = Date::try_from_fields(fields, Buddhist).unwrap();
+        assert_eq!(date.year().extended_year(), 0);
     }
 }

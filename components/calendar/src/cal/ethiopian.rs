@@ -125,6 +125,14 @@ impl DateFieldsResolver for Ethiopian {
             }
     }
 
+    fn extended_from_year_info(&self, year_info: Self::YearInfo) -> i32 {
+        year_info - if self.0 == EthiopianEraStyle::AmeteMihret {
+                AMETE_MIHRET_OFFSET
+            } else {
+                AMETE_ALEM_OFFSET
+            }
+    }
+
     #[inline]
     fn reference_year_from_month_day(
         &self,

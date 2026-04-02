@@ -896,6 +896,10 @@ impl<R: Rules> DateFieldsResolver for Hijri<R> {
         self.0.year(extended_year)
     }
 
+    fn extended_from_year_info(&self, year_info: Self::YearInfo) -> i32 {
+        year_info.extended_year
+    }
+
     #[inline]
     fn reference_year_from_month_day(
         &self,

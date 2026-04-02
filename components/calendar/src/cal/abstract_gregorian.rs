@@ -65,6 +65,10 @@ impl<Y: GregorianYears> DateFieldsResolver for AbstractGregorian<Y> {
         extended_year + Y::EXTENDED_YEAR_OFFSET
     }
 
+    fn extended_from_year_info(&self, year_info: Self::YearInfo) -> i32 {
+        year_info - Y::EXTENDED_YEAR_OFFSET
+    }
+
     #[inline]
     fn reference_year_from_month_day(
         &self,

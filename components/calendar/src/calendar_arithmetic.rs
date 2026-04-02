@@ -225,7 +225,7 @@ pub(crate) trait DateFieldsResolver: Calendar {
 
 
     /// Gets the extended year stored in a [`Self::YearInfo`].
-    fn extended_from_year_info(year_info: Self::YearInfo) -> i32 {
+    fn extended_from_year_info(&self, year_info: Self::YearInfo) -> i32 {
         year_info.to_extended_year()
     }
 
@@ -307,8 +307,8 @@ impl<C: DateFieldsResolver> ArithmeticDate<C> {
         C::YearInfo::unpack_year(self.0)
     }
 
-    pub(crate) fn extended_year(self) -> i32 {
-        C::extended_from_year_info(self.year())
+    pub(crate) fn extended_year(self, c: &C) -> i32 {
+        C::extended_from_year_info(c, self.year())
     }
 
     pub(crate) fn month(self) -> u8 {

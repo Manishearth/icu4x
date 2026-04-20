@@ -95,7 +95,8 @@ impl<'data> ListJoinerPattern<'data> {
                     && (allow_prefix || index_0 == 0)
                     && (allow_suffix || index_1 == pattern.len() - 3) =>
             {
-                if (index_0 > 0 && !cfg!(test)) || index_1 - 3 >= 256 {
+                let index1_minus_three = index_1.wrapping_sub(3);
+                if (index_0 > 0 && !cfg!(test)) || index_0 >= 256 || index1_minus_three >= 256 {
                     return Err(DataError::custom(
                         "Found valid pattern that cannot be stored in ListFormatterPatterns",
                     )
@@ -112,7 +113,7 @@ impl<'data> ListJoinerPattern<'data> {
                         .into_boxed_str(),
                     ),
                     index_0: index_0 as u8,
-                    index_1: (index_1 - 3) as u8,
+                    index_1: index1_minus_three as u8,
                 })
             }
             _ => Err(DataError::custom("Invalid list pattern").with_debug_context(pattern)),

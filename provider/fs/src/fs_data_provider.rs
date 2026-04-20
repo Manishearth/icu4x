@@ -93,7 +93,12 @@ impl FsDataProvider {
                             })?,
                     );
                 } else {
-                    path.push(req.id.marker_attributes.as_str());
+                    let attr_path = req.id.marker_attributes.as_str();
+                    // Data marker attributes are already validated to be
+                    // alphanumeric + underscore/dash. This is defense-in-depth
+                    // against potential path traversal attacks.
+                    assert!(!attr_path.contains(['/', '\\']));
+                    path.push(attr_path);
                 }
             }
             let mut string_path = path.into_os_string();

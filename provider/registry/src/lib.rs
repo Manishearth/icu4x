@@ -235,6 +235,7 @@ macro_rules! registry(
             icu::datetime::provider::day_periods::DayPeriodRulesDesign1V1: DayPeriodRulesDesign1V1,
             icu::datetime::provider::day_periods::DayPeriodRulesDesign2V1: DayPeriodRulesDesign2V1,
             icu::datetime::provider::day_periods::DayPeriodRulesDesign3V1: DayPeriodRulesDesign3V1,
+            icu::datetime::provider::day_periods::DayPeriodRulesDesign4V1: DayPeriodRulesDesign4V1,
             icu::datetime::provider::names::DatetimeNamesYearBuddhistV1: DatetimeNamesYearBuddhistV1,
             icu::datetime::provider::names::DatetimeNamesYearChineseV1: DatetimeNamesYearChineseV1,
             icu::datetime::provider::names::DatetimeNamesYearCopticV1: DatetimeNamesYearCopticV1,

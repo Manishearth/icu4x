@@ -137,6 +137,7 @@ pub const MARKERS: &[DataMarkerInfo] = &[
     day_periods::DayPeriodRulesDesign1V1::INFO,
     day_periods::DayPeriodRulesDesign2V1::INFO,
     day_periods::DayPeriodRulesDesign3V1::INFO,
+    day_periods::DayPeriodRulesDesign4V1::INFO,
     names::DatetimeNamesYearBuddhistV1::INFO,
     names::DatetimeNamesYearChineseV1::INFO,
     names::DatetimeNamesYearCopticV1::INFO,

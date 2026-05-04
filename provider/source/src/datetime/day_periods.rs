@@ -253,3 +253,84 @@ impl IterableDataProviderCached<DayPeriodRulesDesign3V1> for SourceDataProvider 
             .collect())
     }
 }
+
+impl DataProvider<DayPeriodRulesDesign4V1> for SourceDataProvider {
+    fn load(&self, req: DataRequest) -> Result<DataResponse<DayPeriodRulesDesign4V1>, DataError> {
+        self.check_req::<DayPeriodRulesDesign4V1>(req)?;
+        
+        let day_periods: &cldr_serde::day_periods::Resource = self
+            .cldr()?
+            .core()
+            .read_and_parse("supplemental/dayPeriods.json")?;
+            
+        let langid = icu::locale::LanguageIdentifier::from((
+            req.id.locale.language,
+            req.id.locale.script,
+            req.id.locale.region,
+        ));
+        let rules = day_periods
+            .supplemental
+            .day_period_rules
+            .0
+            .get(&langid)
+            .or_else(|| {
+                let mut minimized = langid.clone();
+                minimized.script = None;
+                minimized.region = None;
+                day_periods.supplemental.day_period_rules.0.get(&minimized)
+            });
+
+        let mut bitmap = [0u8; 9];
+        if let Some(rules) = rules {
+            for (period, rule) in rules {
+                if let Some(idx) = period_idx(period) {
+                    if let (Some(from), Some(before)) = (&rule.from, &rule.before) {
+                        let start = parse_hour(from);
+                        let end = parse_hour(before);
+                        // Fill bitmap for hours from start to end
+                        let mut h = start;
+                        while h != end {
+                            let byte_idx = (h as usize * 3) / 8;
+                            let bit_offset = (h as usize * 3) % 8;
+                            
+                            bitmap[byte_idx] &= !(0x7 << bit_offset);
+                            bitmap[byte_idx] |= (idx & 0x7) << bit_offset;
+                            
+                            if bit_offset > 5 {
+                                let next_byte_idx = byte_idx + 1;
+                                let bits_written = 8 - bit_offset;
+                                bitmap[next_byte_idx] &= !(0x7 >> bits_written);
+                                bitmap[next_byte_idx] |= (idx & 0x7) >> bits_written;
+                            }
+                            
+                            h = (h + 1) % 24;
+                        }
+                    }
+                }
+            }
+        }
+
+        let data = DayPeriodRulesV1Design4 { bitmap };
+
+        Ok(DataResponse {
+            metadata: Default::default(),
+            payload: DataPayload::from_owned(data),
+        })
+    }
+}
+
+impl IterableDataProviderCached<DayPeriodRulesDesign4V1> for SourceDataProvider {
+    fn iter_ids_cached(&self) -> Result<HashSet<DataIdentifierCow<'static>>, DataError> {
+        let day_periods: &cldr_serde::day_periods::Resource = self
+            .cldr()?
+            .core()
+            .read_and_parse("supplemental/dayPeriods.json")?;
+        Ok(day_periods
+            .supplemental
+            .day_period_rules
+            .0
+            .keys()
+            .map(|l| DataIdentifierCow::from_locale(DataLocale::from(l.clone())))
+            .collect())
+    }
+}

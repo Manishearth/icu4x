@@ -101,3 +101,26 @@ icu_provider::data_marker!(
     DayPeriodRulesDesign3V1,
     DayPeriodRulesV1Design3<'static>,
 );
+
+/// Day period rule design 4.
+#[derive(Debug, PartialEq, Clone, Copy, yoke::Yokeable, zerofrom::ZeroFrom)]
+#[cfg_attr(feature = "datagen", derive(serde::Serialize, databake::Bake))]
+#[cfg_attr(feature = "datagen", databake(path = icu_datetime::provider::day_periods))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[yoke(prove_covariance_manually)]
+pub struct DayPeriodRulesV1Design4 {
+    /// The bitmap, 24 hours * 3 bits = 72 bits.
+    /// We use 9 bytes = 72 bits.
+    pub bitmap: [u8; 9],
+}
+
+icu_provider::data_struct!(
+    DayPeriodRulesV1Design4,
+    #[cfg(feature = "datagen")]
+);
+
+icu_provider::data_marker!(
+    /// `DayPeriodRulesDesign4V1` marker
+    DayPeriodRulesDesign4V1,
+    DayPeriodRulesV1Design4,
+);

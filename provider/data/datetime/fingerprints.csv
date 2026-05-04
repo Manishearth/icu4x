@@ -25868,6 +25868,93 @@ day/period/rules/design3/v1, yrl, -> kgp
 day/period/rules/design3/v1, yue, 37B, 8B, 78d0f5394f7c4f06
 day/period/rules/design3/v1, zh, -> yue
 day/period/rules/design3/v1, zu, 36B, 7B, 153236fc4e2f9f85
+day/period/rules/design4/v1, <lookup>, 424B, 85 identifiers
+day/period/rules/design4/v1, <total>, 549B, 549B, 61 unique payloads
+day/period/rules/design4/v1, af, 9B, 9B, 7c1a434a0ce60e6d
+day/period/rules/design4/v1, am, 9B, 9B, 1f5c12d0b225a975
+day/period/rules/design4/v1, ar, 9B, 9B, 2281fb4d2f275c59
+day/period/rules/design4/v1, az, 9B, 9B, f736d9d183aae071
+day/period/rules/design4/v1, bg, 9B, 9B, a3079e6a041d3e4b
+day/period/rules/design4/v1, blo, 9B, 9B, 146312b5b60225e9
+day/period/rules/design4/v1, bn, 9B, 9B, 421a67b836058156
+day/period/rules/design4/v1, bs, 9B, 9B, d0b176695bbfea20
+day/period/rules/design4/v1, ca, 9B, 9B, c08cd78383240ebf
+day/period/rules/design4/v1, chr, 9B, 9B, 2adca1dfc23c02c
+day/period/rules/design4/v1, cs, 9B, 9B, 49fa507483e1baad
+day/period/rules/design4/v1, cy, 9B, 9B, 63f28cd003fb1021
+day/period/rules/design4/v1, da, 9B, 9B, 93ef43c7287b1553
+day/period/rules/design4/v1, de, 9B, 9B, a66ab2c656f1c9d7
+day/period/rules/design4/v1, ee, 9B, 9B, f2bd2783c50a2e12
+day/period/rules/design4/v1, el, 9B, 9B, 870f4b2f44b2fa68
+day/period/rules/design4/v1, en, 9B, 9B, dbe4ba45480d28fd
+day/period/rules/design4/v1, es, 9B, 9B, d5bc175bb432182e
+day/period/rules/design4/v1, es-CO, 9B, 9B, a69afb2bdac180f3
+day/period/rules/design4/v1, et, 9B, 9B, fe63e6bb96117773
+day/period/rules/design4/v1, eu, 9B, 9B, c71efdecbb23a8f3
+day/period/rules/design4/v1, fa, 9B, 9B, 37fc00a515a1af8f
+day/period/rules/design4/v1, fi, 9B, 9B, f424e3af09e93883
+day/period/rules/design4/v1, fil, 9B, 9B, e0274da5207a3516
+day/period/rules/design4/v1, fr, 9B, 9B, 967df8f3f5b89697
+day/period/rules/design4/v1, gl, 9B, 9B, beee50dac37b2bd5
+day/period/rules/design4/v1, gu, 9B, 9B, 809bbd7c024fb250
+day/period/rules/design4/v1, he, 9B, 9B, 1fc2691722344c6e
+day/period/rules/design4/v1, hi, -> gu
+day/period/rules/design4/v1, hi-Latn, -> gu
+day/period/rules/design4/v1, hr, -> bs
+day/period/rules/design4/v1, hu, 9B, 9B, 5f1d6bbd93b7d449
+day/period/rules/design4/v1, hy, -> am
+day/period/rules/design4/v1, id, 9B, 9B, 4c17515f9143531e
+day/period/rules/design4/v1, is, -> am
+day/period/rules/design4/v1, it, -> am
+day/period/rules/design4/v1, ja, 9B, 9B, 4eb1636104933235
+day/period/rules/design4/v1, ka, 9B, 9B, 943b40b41caf0fbc
+day/period/rules/design4/v1, kgp, 9B, 9B, 13ee23933806d99c
+day/period/rules/design4/v1, kk, 9B, 9B, 4eedaac15f3c09b3
+day/period/rules/design4/v1, km, -> en
+day/period/rules/design4/v1, kn, -> kk
+day/period/rules/design4/v1, ko, 9B, 9B, 46d07e8c2d6d7d06
+day/period/rules/design4/v1, kok, -> gu
+day/period/rules/design4/v1, kok-Latn, -> gu
+day/period/rules/design4/v1, ky, -> kk
+day/period/rules/design4/v1, lij, 9B, 9B, ff19a3bbe369cad7
+day/period/rules/design4/v1, lo, 9B, 9B, 4cb50f72cae13d56
+day/period/rules/design4/v1, lt, -> am
+day/period/rules/design4/v1, lv, 9B, 9B, 2e691411a3b01954
+day/period/rules/design4/v1, mk, 9B, 9B, 4e411452c5231763
+day/period/rules/design4/v1, ml, 9B, 9B, d9f381ed498b1608
+day/period/rules/design4/v1, mn, -> kk
+day/period/rules/design4/v1, mr, 9B, 9B, f1fbbbfcfb6fe5ba
+day/period/rules/design4/v1, ms, 9B, 9B, acb39e222f8c5d64
+day/period/rules/design4/v1, my, 9B, 9B, 46de5b1604ccb4bc
+day/period/rules/design4/v1, ne, 9B, 9B, 7b0de5da209f681f
+day/period/rules/design4/v1, nl, -> am
+day/period/rules/design4/v1, no, 9B, 9B, c442624cf2f20641
+day/period/rules/design4/v1, pa, 9B, 9B, 99637471aaf80f4
+day/period/rules/design4/v1, pl, 9B, 9B, 30a3758a4ad03d3a
+day/period/rules/design4/v1, pt, -> kgp
+day/period/rules/design4/v1, ro, 9B, 9B, f1b8f138ec9c230b
+day/period/rules/design4/v1, ru, 9B, 9B, 1ae11cfbbf9eebd2
+day/period/rules/design4/v1, scn, -> fr
+day/period/rules/design4/v1, si, 9B, 9B, 48c00d5eb244e3bb
+day/period/rules/design4/v1, sk, -> cs
+day/period/rules/design4/v1, sl, 9B, 9B, e5782961c9e559e5
+day/period/rules/design4/v1, sq, 9B, 9B, 41d567c7f3bc5b84
+day/period/rules/design4/v1, sr, -> kk
+day/period/rules/design4/v1, sv, -> da
+day/period/rules/design4/v1, sw, 9B, 9B, ccd384d82989113a
+day/period/rules/design4/v1, ta, 9B, 9B, dbc7fe979747a28b
+day/period/rules/design4/v1, te, -> kk
+day/period/rules/design4/v1, th, 9B, 9B, e09f260a1117976
+day/period/rules/design4/v1, tr, 9B, 9B, acd2f572338ec8ae
+day/period/rules/design4/v1, uk, -> fr
+day/period/rules/design4/v1, und, 9B, 9B, 2d508cd20c8f0cef
+day/period/rules/design4/v1, ur, 9B, 9B, 43eb4e85be2c6bcf
+day/period/rules/design4/v1, uz, 9B, 9B, 54b1bec4b1d194ff
+day/period/rules/design4/v1, vi, -> bs
+day/period/rules/design4/v1, yrl, -> kgp
+day/period/rules/design4/v1, yue, 9B, 9B, 3f5ce3d7b3fb9f2f
+day/period/rules/design4/v1, zh, -> yue
+day/period/rules/design4/v1, zu, 9B, 9B, a20b261d367b98c1
 timezone/names/cities/override/v1, <lookup>, 865B, 168 identifiers
 timezone/names/cities/override/v1, <total>, 271313B, 264588B, 152 unique payloads
 timezone/names/cities/override/v1, af, 933B, 889B, d7e95f0042cec020

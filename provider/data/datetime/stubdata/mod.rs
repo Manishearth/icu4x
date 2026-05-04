@@ -48,6 +48,7 @@ include!("timezone_names_standard_long_v1.rs.data");
 include!("datetime_names_month_japanese_v1.rs.data");
 include!("datetime_names_year_gregorian_v1.rs.data");
 include!("datetime_names_month_coptic_v1.rs.data");
+include!("day_period_rules_design4_v1.rs.data");
 include!("timezone_names_locations_override_v1.rs.data");
 include!("datetime_patterns_date_dangi_v1.rs.data");
 include!("datetime_names_month_roc_v1.rs.data");
@@ -133,6 +134,7 @@ macro_rules! impl_data_provider {
         impl_datetime_names_month_japanese_v1!($provider);
         impl_datetime_names_year_gregorian_v1!($provider);
         impl_datetime_names_month_coptic_v1!($provider);
+        impl_day_period_rules_design4_v1!($provider);
         impl_timezone_names_locations_override_v1!($provider);
         impl_datetime_patterns_date_dangi_v1!($provider);
         impl_datetime_names_month_roc_v1!($provider);

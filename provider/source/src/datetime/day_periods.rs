@@ -289,7 +289,7 @@ impl DataProvider<DayPeriodRulesDesign4V1> for SourceDataProvider {
                         let end = parse_hour(before);
                         // Fill bitmap for hours from start to end
                         let mut h = start;
-                        while h != end {
+                        loop {
                             let byte_idx = (h as usize * 3) / 8;
                             let bit_offset = (h as usize * 3) % 8;
                             
@@ -304,6 +304,9 @@ impl DataProvider<DayPeriodRulesDesign4V1> for SourceDataProvider {
                             }
                             
                             h = (h + 1) % 24;
+                            if h == end || (h == 0 && end == 24) {
+                                break;
+                            }
                         }
                     }
                 }

@@ -28,6 +28,11 @@ pub struct DayPeriodRulesV1Design1<'data> {
     pub entries: ZeroVec<'data, DayPeriodRule1>,
 }
 
+icu_provider::data_struct!(
+    DayPeriodRulesV1Design1<'_>,
+    #[cfg(feature = "datagen")]
+);
+
 /// Rule for Design 2.
 /// Bitset: rule start (5 bits = 24 hours + leftovers), rule delta (3 bits = 16hrs)
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -51,6 +56,11 @@ pub struct DayPeriodRulesV1Design2<'data> {
     pub entries: ZeroVec<'data, DayPeriodRule2>,
 }
 
+icu_provider::data_struct!(
+    DayPeriodRulesV1Design2<'_>,
+    #[cfg(feature = "datagen")]
+);
+
 /// Day period rule design 3.
 #[derive(Debug, PartialEq, Clone, yoke::Yokeable, zerofrom::ZeroFrom)]
 #[cfg_attr(feature = "datagen", derive(serde::Serialize, databake::Bake))]
@@ -66,6 +76,11 @@ pub struct DayPeriodRulesV1Design3<'data> {
     #[cfg_attr(feature = "serde", serde(borrow))]
     pub diffs: ZeroVec<'data, u8>,
 }
+
+icu_provider::data_struct!(
+    DayPeriodRulesV1Design3<'_>,
+    #[cfg(feature = "datagen")]
+);
 
 // Define markers
 

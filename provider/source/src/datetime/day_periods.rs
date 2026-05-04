@@ -36,30 +36,41 @@ impl DataProvider<DayPeriodRulesDesign1V1> for SourceDataProvider {
             .core()
             .read_and_parse("supplemental/dayPeriods.json")?;
             
-        let langid = req.id.locale.langid();
+        let langid = icu::locale::LanguageIdentifier::from((
+            req.id.locale.language,
+            req.id.locale.script,
+            req.id.locale.region,
+        ));
         let rules = day_periods
             .supplemental
             .day_period_rules
             .0
             .get(&langid)
-            .ok_or(DataErrorKind::IdentifierNotFound.into_error())?;
+            .or_else(|| {
+                let mut minimized = langid.clone();
+                minimized.script = None;
+                minimized.region = None;
+                day_periods.supplemental.day_period_rules.0.get(&minimized)
+            });
 
         let mut entries = Vec::new();
-        for (period, rule) in rules {
-            if let Some(idx) = period_idx(period) {
-                if let (Some(from), Some(before)) = (&rule.from, &rule.before) {
-                    let start = parse_hour(from);
-                    let end = parse_hour(before);
-                    let val = ((idx as u16) << 10) | ((start as u16) << 5) | (end as u16);
-                    entries.push(DayPeriodRule1(val));
+        if let Some(rules) = rules {
+            for (period, rule) in rules {
+                if let Some(idx) = period_idx(period) {
+                    if let (Some(from), Some(before)) = (&rule.from, &rule.before) {
+                        let start = parse_hour(from);
+                        let end = parse_hour(before);
+                        let val = ((idx as u16) << 10) | ((start as u16) << 5) | (end as u16);
+                        entries.push(DayPeriodRule1(val));
+                    }
                 }
             }
+            // Sort by period index to be consistent
+            entries.sort_by_key(|e| e.0 >> 10);
         }
-        // Sort by period index to be consistent
-        entries.sort_by_key(|e| e.0 >> 10);
 
         let data = DayPeriodRulesV1Design1 {
-            entries: zerovec::ZeroVec::from_vec_take_owned(entries),
+            entries: entries.into_iter().collect(),
         };
 
         Ok(DataResponse {
@@ -94,35 +105,46 @@ impl DataProvider<DayPeriodRulesDesign2V1> for SourceDataProvider {
             .core()
             .read_and_parse("supplemental/dayPeriods.json")?;
             
-        let langid = req.id.locale.langid();
+        let langid = icu::locale::LanguageIdentifier::from((
+            req.id.locale.language,
+            req.id.locale.script,
+            req.id.locale.region,
+        ));
         let rules = day_periods
             .supplemental
             .day_period_rules
             .0
             .get(&langid)
-            .ok_or(DataErrorKind::IdentifierNotFound.into_error())?;
+            .or_else(|| {
+                let mut minimized = langid.clone();
+                minimized.script = None;
+                minimized.region = None;
+                day_periods.supplemental.day_period_rules.0.get(&minimized)
+            });
 
         let mut entries = Vec::new();
         let mut presence = 0u8;
-        for (period, rule) in rules {
-            if let Some(idx) = period_idx(period) {
-                if let (Some(from), Some(before)) = (&rule.from, &rule.before) {
-                    let start = parse_hour(from);
-                    let end = parse_hour(before);
-                    let delta = if end >= start { end - start } else { end + 24 - start };
-                    let val = ((start as u8) << 3) | ((delta - 1) as u8); // assuming delta >= 1
-                    entries.push((idx, DayPeriodRule2(val)));
-                    presence |= 1 << idx;
+        if let Some(rules) = rules {
+            for (period, rule) in rules {
+                if let Some(idx) = period_idx(period) {
+                    if let (Some(from), Some(before)) = (&rule.from, &rule.before) {
+                        let start = parse_hour(from);
+                        let end = parse_hour(before);
+                        let delta = if end >= start { end - start } else { end + 24 - start };
+                        let val = (start << 3) | (delta - 1); // assuming delta >= 1
+                        entries.push((idx, DayPeriodRule2(val)));
+                        presence |= 1 << idx;
+                    }
                 }
             }
+            // Sort by period index to match presence bitmask
+            entries.sort_by_key(|e| e.0);
         }
-        // Sort by period index to match presence bitmask
-        entries.sort_by_key(|e| e.0);
         let entries = entries.into_iter().map(|e| e.1).collect::<Vec<_>>();
 
         let data = DayPeriodRulesV1Design2 {
             presence,
-            entries: zerovec::ZeroVec::from_vec_take_owned(entries),
+            entries: entries.into_iter().collect(),
         };
 
         Ok(DataResponse {
@@ -157,45 +179,56 @@ impl DataProvider<DayPeriodRulesDesign3V1> for SourceDataProvider {
             .core()
             .read_and_parse("supplemental/dayPeriods.json")?;
             
-        let langid = req.id.locale.langid();
+        let langid = icu::locale::LanguageIdentifier::from((
+            req.id.locale.language,
+            req.id.locale.script,
+            req.id.locale.region,
+        ));
         let rules = day_periods
             .supplemental
             .day_period_rules
             .0
             .get(&langid)
-            .ok_or(DataErrorKind::IdentifierNotFound.into_error())?;
+            .or_else(|| {
+                let mut minimized = langid.clone();
+                minimized.script = None;
+                minimized.region = None;
+                day_periods.supplemental.day_period_rules.0.get(&minimized)
+            });
 
         let mut entries = Vec::new();
         let mut presence = 0u8;
-        for (period, rule) in rules {
-            if let Some(idx) = period_idx(period) {
-                if let (Some(from), Some(before)) = (&rule.from, &rule.before) {
-                    let start = parse_hour(from);
-                    let end = parse_hour(before);
-                    entries.push((idx, start, end));
-                    presence |= 1 << idx;
+        if let Some(rules) = rules {
+            for (period, rule) in rules {
+                if let Some(idx) = period_idx(period) {
+                    if let (Some(from), Some(before)) = (&rule.from, &rule.before) {
+                        let start = parse_hour(from);
+                        let end = parse_hour(before);
+                        entries.push((idx, start, end));
+                        presence |= 1 << idx;
+                    }
                 }
             }
+            // Sort by start time to construct diffs
+            entries.sort_by_key(|e| e.1);
         }
-        // Sort by start time to construct diffs
-        entries.sort_by_key(|e| e.1);
 
         let mut diffs = Vec::new();
         let mut start_time = 0;
         if let Some(first) = entries.first() {
             start_time = first.1;
-            let mut last_end = first.2;
+            let mut last_start = start_time;
             for entry in entries.iter().skip(1) {
-                let diff = if entry.1 >= last_end { entry.1 - last_end } else { entry.1 + 24 - last_end };
+                let diff = if entry.1 >= last_start { entry.1 - last_start } else { entry.1 + 24 - last_start };
                 diffs.push(diff);
-                last_end = entry.2;
+                last_start = entry.1;
             }
         }
 
         let data = DayPeriodRulesV1Design3 {
             presence,
             start_time,
-            diffs: zerovec::ZeroVec::from_vec_take_owned(diffs),
+            diffs: diffs.into_iter().collect(),
         };
 
         Ok(DataResponse {

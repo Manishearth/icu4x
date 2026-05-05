@@ -25,6 +25,7 @@ include!("day_period_rules_design2_v1.rs.data");
 include!("datetime_names_month_chinese_v1.rs.data");
 include!("timezone_names_locations_root_v1.rs.data");
 include!("timezone_names_specific_short_v1.rs.data");
+include!("day_period_rules_design5b_v1.rs.data");
 include!("datetime_patterns_glue_v1.rs.data");
 include!("timezone_names_cities_root_v1.rs.data");
 include!("day_period_rules_design1_v1.rs.data");
@@ -112,6 +113,7 @@ macro_rules! impl_data_provider {
         impl_datetime_names_month_chinese_v1!($provider);
         impl_timezone_names_locations_root_v1!($provider);
         impl_timezone_names_specific_short_v1!($provider);
+        impl_day_period_rules_design5b_v1!($provider);
         impl_datetime_patterns_glue_v1!($provider);
         impl_timezone_names_cities_root_v1!($provider);
         impl_day_period_rules_design1_v1!($provider);

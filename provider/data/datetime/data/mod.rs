@@ -11,6 +11,7 @@ include!("datetime_names_year_persian_v1.rs.data");
 include!("datetime_names_year_hebrew_v1.rs.data");
 include!("datetime_names_dayperiod_v1.rs.data");
 include!("datetime_patterns_date_persian_v1.rs.data");
+include!("day_period_rules_design5_v1.rs.data");
 include!("datetime_names_month_buddhist_v1.rs.data");
 include!("datetime_names_weekday_v1.rs.data");
 include!("datetime_names_year_roc_v1.rs.data");
@@ -101,6 +102,7 @@ macro_rules! impl_data_provider {
         impl_datetime_names_year_hebrew_v1!($provider);
         impl_datetime_names_dayperiod_v1!($provider);
         impl_datetime_patterns_date_persian_v1!($provider);
+        impl_day_period_rules_design5_v1!($provider);
         impl_datetime_names_month_buddhist_v1!($provider);
         impl_datetime_names_weekday_v1!($provider);
         impl_datetime_names_year_roc_v1!($provider);

@@ -365,113 +365,6 @@ impl DataProvider<DayPeriodRulesDesign5V1> for SourceDataProvider {
             });
 
         let mut presence = 0u8;
-        let mut occupancy = [0u8; 3];
-        let mut starts_with_last = false;
-
-        if let Some(rules) = rules {
-            let mut entries = Vec::new();
-            for (period, rule) in rules {
-                if let Some(idx) = period_idx(period) {
-                    if let (Some(from), Some(before)) = (&rule.from, &rule.before) {
-                        let start = parse_hour(from);
-                        let end = parse_hour(before);
-                        entries.push((idx, start, end));
-                        presence |= 1 << idx;
-                    }
-                }
-            }
-            
-            // Sort by start time to find transitions
-            entries.sort_by_key(|e| e.1);
-
-            if let Some(first) = entries.first() {
-                let mut period_at_0 = None;
-                for entry in &entries {
-                    if entry.1 <= 0 && entry.2 > 0 {
-                         period_at_0 = Some(entry.0);
-                         break;
-                    }
-                    if entry.1 > entry.2 {
-                         if 0 >= entry.1 || 0 < entry.2 {
-                              period_at_0 = Some(entry.0);
-                              break;
-                         }
-                    }
-                }
-                
-                if let Some(p_idx) = period_at_0 {
-                     if let Some(last) = entries.last() {
-                          if p_idx == last.0 {
-                               starts_with_last = true;
-                          }
-                     }
-                }
-
-                for entry in &entries {
-                    let start = entry.1;
-                    let byte_idx = start as usize / 8;
-                    let bit_offset = start as usize % 8;
-                    occupancy[byte_idx] |= 1 << bit_offset;
-                }
-            }
-        }
-
-        let data = DayPeriodRulesV1Design5 {
-            presence,
-            occupancy,
-            starts_with_last,
-        };
-
-        Ok(DataResponse {
-            metadata: Default::default(),
-            payload: DataPayload::from_owned(data),
-        })
-    }
-}
-
-impl IterableDataProviderCached<DayPeriodRulesDesign5V1> for SourceDataProvider {
-    fn iter_ids_cached(&self) -> Result<HashSet<DataIdentifierCow<'static>>, DataError> {
-        let day_periods: &cldr_serde::day_periods::Resource = self
-            .cldr()?
-            .core()
-            .read_and_parse("supplemental/dayPeriods.json")?;
-        Ok(day_periods
-            .supplemental
-            .day_period_rules
-            .0
-            .keys()
-            .map(|l| DataIdentifierCow::from_locale(DataLocale::from(l.clone())))
-            .collect())
-    }
-}
-
-impl DataProvider<DayPeriodRulesDesign5bV1> for SourceDataProvider {
-    fn load(&self, req: DataRequest) -> Result<DataResponse<DayPeriodRulesDesign5bV1>, DataError> {
-        self.check_req::<DayPeriodRulesDesign5bV1>(req)?;
-        
-        let day_periods: &cldr_serde::day_periods::Resource = self
-            .cldr()?
-            .core()
-            .read_and_parse("supplemental/dayPeriods.json")?;
-            
-        let langid = icu::locale::LanguageIdentifier::from((
-            req.id.locale.language,
-            req.id.locale.script,
-            req.id.locale.region,
-        ));
-        let rules = day_periods
-            .supplemental
-            .day_period_rules
-            .0
-            .get(&langid)
-            .or_else(|| {
-                let mut minimized = langid.clone();
-                minimized.script = None;
-                minimized.region = None;
-                day_periods.supplemental.day_period_rules.0.get(&minimized)
-            });
-
-        let mut presence = 0u8;
         let mut occupancy = 0u32; // 24 bits used
 
         if let Some(rules) = rules {
@@ -532,7 +425,7 @@ impl DataProvider<DayPeriodRulesDesign5bV1> for SourceDataProvider {
             }
         }
 
-        let data = DayPeriodRulesV1Design5b((occupancy << 8) | presence as u32);
+        let data = DayPeriodRulesV1Design5((occupancy << 8) | presence as u32);
 
         Ok(DataResponse {
             metadata: Default::default(),
@@ -541,7 +434,7 @@ impl DataProvider<DayPeriodRulesDesign5bV1> for SourceDataProvider {
     }
 }
 
-impl IterableDataProviderCached<DayPeriodRulesDesign5bV1> for SourceDataProvider {
+impl IterableDataProviderCached<DayPeriodRulesDesign5V1> for SourceDataProvider {
     fn iter_ids_cached(&self) -> Result<HashSet<DataIdentifierCow<'static>>, DataError> {
         let day_periods: &cldr_serde::day_periods::Resource = self
             .cldr()?

@@ -131,14 +131,7 @@ icu_provider::data_marker!(
 #[cfg_attr(feature = "datagen", databake(path = icu_datetime::provider::day_periods))]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[yoke(prove_covariance_manually)]
-pub struct DayPeriodRulesV1Design5 {
-    /// Bitmask: which rules are present.
-    pub presence: u8,
-    /// The occupancy bitmap, 24 bits.
-    pub occupancy: [u8; 3],
-    /// True if the period active at hour 0 is the last one in the present list.
-    pub starts_with_last: bool,
-}
+pub struct DayPeriodRulesV1Design5(pub u32);
 
 icu_provider::data_struct!(
     DayPeriodRulesV1Design5,
@@ -149,23 +142,4 @@ icu_provider::data_marker!(
     /// `DayPeriodRulesDesign5V1` marker
     DayPeriodRulesDesign5V1,
     DayPeriodRulesV1Design5,
-);
-
-/// Day period rule design 5b.
-#[derive(Debug, PartialEq, Clone, Copy, yoke::Yokeable, zerofrom::ZeroFrom)]
-#[cfg_attr(feature = "datagen", derive(serde::Serialize, databake::Bake))]
-#[cfg_attr(feature = "datagen", databake(path = icu_datetime::provider::day_periods))]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-#[yoke(prove_covariance_manually)]
-pub struct DayPeriodRulesV1Design5b(pub u32);
-
-icu_provider::data_struct!(
-    DayPeriodRulesV1Design5b,
-    #[cfg(feature = "datagen")]
-);
-
-icu_provider::data_marker!(
-    /// `DayPeriodRulesDesign5bV1` marker
-    DayPeriodRulesDesign5bV1,
-    DayPeriodRulesV1Design5b,
 );

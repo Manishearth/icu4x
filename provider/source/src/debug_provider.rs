@@ -32,6 +32,11 @@ where
             Box::new(['\0'; 10])
         } else if type_id == TypeId::of::<DecimalSymbols>() {
             Box::new(DecimalSymbols::new_en_for_testing())
+        } else if type_id == TypeId::of::<icu::datetime::provider::day_periods::DayPeriodRules>() {
+            Box::new(icu::datetime::provider::day_periods::DayPeriodRules {
+                presence: 0,
+                transitions: [0; 3],
+            })
         } else {
             panic!(
                 "Don't how how to create for debug: {}",

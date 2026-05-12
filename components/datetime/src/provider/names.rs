@@ -460,6 +460,8 @@ size_test!(LinearNames, linear_names_v1_size, 24);
 /// - For weekdays, element 0 is Sunday
 /// - For dayperiods, the elements are in order: AM, PM, (noon), (midnight), where the latter two are optional.
 ///   In the case noon is missing but midnight is present, the noon value can be the empty string. This is unlikely.
+///   If the locale has flexible day periods, the 8 flexible day period names are appended at indices 4..12
+///   in order of their `DayPeriod` enum values (Morning1 to Night2).
 /// - For day names element 0 is the first day of the month
 ///
 /// This uses a data marker attribute for length. See [`YearNames`] for more information on the scheme.
@@ -527,3 +529,90 @@ pub use DatetimeNamesWeekdayV1 as WeekdayNamesV1;
 
 /// Re-export of day period names marker for more consistency
 pub use DatetimeNamesDayperiodV1 as DayPeriodNamesV1;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(feature = "compiled_data")]
+    #[test]
+    fn test_dayperiod_names_compiled_data() {
+        let provider = crate::provider::Baked;
+
+        // Load names
+        let names_en: DataPayload<DayPeriodNamesV1> = provider
+            .load(DataRequest {
+                id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
+                    DataMarkerAttributes::from_str_or_panic("5"),
+                    &icu_locale::langid!("en").into(),
+                ),
+                ..Default::default()
+            })
+            .unwrap()
+            .payload;
+
+        // English should only have standard names (AM, PM, noon, midnight)
+        assert_eq!(names_en.get().names.len(), 4);
+        assert_eq!(names_en.get().names.get(0), Some("AM"));
+        assert_eq!(names_en.get().names.get(1), Some("PM"));
+        assert_eq!(names_en.get().names.get(2), Some("noon"));
+        assert_eq!(names_en.get().names.get(3), Some("midnight"));
+
+        let names_zh: DataPayload<DayPeriodNamesV1> = provider
+            .load(DataRequest {
+                id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
+                    DataMarkerAttributes::from_str_or_panic("5"),
+                    &icu_locale::langid!("zh").into(),
+                ),
+                ..Default::default()
+            })
+            .unwrap()
+            .payload;
+
+        // Simplified Chinese (zh) does not map non-B skeletons to B in CLDR, so it only has standard names (length 4)
+        assert_eq!(names_zh.get().names.len(), 4);
+        assert_eq!(names_zh.get().names.get(0), Some("上午")); // AM
+        assert_eq!(names_zh.get().names.get(1), Some("下午")); // PM
+
+        let names_zh_hant: DataPayload<DayPeriodNamesV1> = provider
+            .load(DataRequest {
+                id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
+                    DataMarkerAttributes::from_str_or_panic("5"),
+                    &icu_locale::langid!("zh-Hant").into(),
+                ),
+                ..Default::default()
+            })
+            .unwrap()
+            .payload;
+
+        // Traditional Chinese (zh-Hant) maps non-B skeletons to B, so it has 12 names
+        assert_eq!(names_zh_hant.get().names.len(), 12);
+        assert_eq!(names_zh_hant.get().names.get(0), Some("上午")); // AM
+        assert_eq!(names_zh_hant.get().names.get(1), Some("下午")); // PM
+        assert_eq!(names_zh_hant.get().names.get(4), Some("清晨"));
+        assert_eq!(names_zh_hant.get().names.get(5), Some("上午"));
+        assert_eq!(names_zh_hant.get().names.get(6), Some("中午"));
+        assert_eq!(names_zh_hant.get().names.get(7), Some("下午"));
+        assert_eq!(names_zh_hant.get().names.get(8), Some("晚上"));
+        assert_eq!(names_zh_hant.get().names.get(10), Some("凌晨")); // night1 is at index 10 (4 + 6)
+
+        let names_de: DataPayload<DayPeriodNamesV1> = provider
+            .load(DataRequest {
+                id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
+                    DataMarkerAttributes::from_str_or_panic("5"),
+                    &icu_locale::langid!("de").into(),
+                ),
+                ..Default::default()
+            })
+            .unwrap()
+            .payload;
+
+        // German (de) has flexible names (length 12) because its Buddhist calendar needs them.
+        assert_eq!(names_de.get().names.len(), 12);
+        assert_eq!(names_de.get().names.get(4), Some("morgens"));
+        assert_eq!(names_de.get().names.get(6), Some("mittags"));
+        assert_eq!(names_de.get().names.get(7), Some("nachmittags"));
+        assert_eq!(names_de.get().names.get(8), Some("abends"));
+        assert_eq!(names_de.get().names.get(10), Some("nachts"));
+    }
+}

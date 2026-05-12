@@ -8,6 +8,7 @@ use crate::IterableDataProviderCached;
 use crate::SourceDataProvider;
 use icu::datetime::provider::pattern;
 
+use icu::datetime::provider::day_periods::DayPeriod;
 use icu::datetime::provider::names::*;
 use icu::datetime::provider::semantic_skeletons::marker_attrs::GlueType;
 use icu::datetime::provider::semantic_skeletons::marker_attrs::{
@@ -189,10 +190,61 @@ fn weekday_convert(
     })
 }
 
+/// Helper function to check if any of the standard length patterns contain 'B' (flexible day periods).
+fn time_format_has_b(formats: &ca::LengthPatterns) -> bool {
+    formats.full.get_pattern().contains('B')
+        || formats.long.get_pattern().contains('B')
+        || formats.medium.get_pattern().contains('B')
+        || formats.short.get_pattern().contains('B')
+}
+
+fn needs_flexible_day_periods_for_calendar(data: &ca::Dates) -> bool {
+    if time_format_has_b(&data.time_formats) {
+        return true;
+    }
+    if time_format_has_b(&data.time_skeletons) {
+        return true;
+    }
+    for (skeleton, pattern) in &data.datetime_formats.available_formats.0 {
+        if pattern.contains('B') && !skeleton.contains('B') {
+            return true;
+        }
+    }
+    false
+}
+
+/// Checks if the locale needs flexible day periods.
+/// A locale needs them if any of its supported calendars has standard time formats
+/// or available formats containing 'B' (flexible day periods) for non-B skeletons.
+fn needs_flexible_day_periods(datagen: &SourceDataProvider, locale: &DataLocale) -> bool {
+    const ALL_CALENDARS: &[DatagenCalendar] = &[
+        DatagenCalendar::Buddhist,
+        DatagenCalendar::Chinese,
+        DatagenCalendar::Coptic,
+        DatagenCalendar::Dangi,
+        DatagenCalendar::Ethiopic,
+        DatagenCalendar::Gregorian,
+        DatagenCalendar::Hebrew,
+        DatagenCalendar::Indian,
+        DatagenCalendar::Hijri,
+        DatagenCalendar::Japanese,
+        DatagenCalendar::Persian,
+        DatagenCalendar::Roc,
+    ];
+    for &calendar in ALL_CALENDARS {
+        if let Ok(data) = datagen.get_dates_resource(locale, Some(calendar)) {
+            if needs_flexible_day_periods_for_calendar(data) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 #[allow(clippy::unnecessary_wraps)] // signature required by macro
 fn dayperiods_convert(
-    _datagen: &SourceDataProvider,
-    _locale: &DataLocale,
+    datagen: &SourceDataProvider,
+    locale: &DataLocale,
     data: &ca::Dates,
     _calendar: DatagenCalendar,
     context: Context,
@@ -210,6 +262,18 @@ fn dayperiods_convert(
 
     if let Some(ref midnight) = day_periods.midnight {
         periods.push(midnight)
+    }
+
+    if needs_flexible_day_periods(datagen, locale) {
+        periods.resize(4, "");
+        let mut flex_periods = vec![""; 8];
+        for (period_name, name) in &day_periods.flexible {
+            if let Some(period_enum) = DayPeriod::from_cldr_name(period_name) {
+                let idx = period_enum as usize;
+                flex_periods[idx] = name;
+            }
+        }
+        periods.extend(flex_periods);
     }
 
     Ok(LinearNames {

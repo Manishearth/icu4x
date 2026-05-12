@@ -14,6 +14,7 @@ pub(crate) mod coverage_levels;
 pub(crate) mod currencies;
 #[cfg(feature = "unstable")]
 pub(crate) mod date_fields;
+pub(crate) mod day_periods;
 pub(crate) mod directionality;
 #[cfg_attr(not(feature = "unstable"), allow(dead_code))]
 pub(crate) mod displaynames;

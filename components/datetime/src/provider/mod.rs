@@ -17,6 +17,7 @@
 
 #[cfg(feature = "serde")]
 pub(crate) mod compat;
+pub mod day_periods;
 pub mod fields;
 pub mod names;
 pub mod packed_pattern;
@@ -63,6 +64,7 @@ const _: () = {
 
     impl_datetime_names_weekday_v1!(Baked);
     impl_datetime_names_dayperiod_v1!(Baked);
+    impl_day_period_rules_v1!(Baked);
 
     impl_datetime_names_year_buddhist_v1!(Baked);
     impl_datetime_names_year_chinese_v1!(Baked);
@@ -133,6 +135,7 @@ pub const MARKERS: &[DataMarkerInfo] = &[
     time_zones::TimezoneNamesEssentialsV1::INFO,
     names::DatetimeNamesWeekdayV1::INFO,
     names::DatetimeNamesDayperiodV1::INFO,
+    day_periods::DayPeriodRulesV1::INFO,
     names::DatetimeNamesYearBuddhistV1::INFO,
     names::DatetimeNamesYearChineseV1::INFO,
     names::DatetimeNamesYearCopticV1::INFO,

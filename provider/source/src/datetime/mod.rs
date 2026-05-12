@@ -8,6 +8,7 @@ use icu::calendar::AnyCalendarKind;
 use icu_provider::prelude::*;
 
 mod available_formats;
+mod day_periods;
 mod names;
 mod semantic_skeletons;
 mod week_data;

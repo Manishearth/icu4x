@@ -9,7 +9,8 @@ use super::{
 };
 use crate::error::ErrorField;
 use crate::fieldsets::enums::{CompositeDateTimeFieldSet, CompositeFieldSet};
-use crate::provider::fields::{self, FieldLength, FieldSymbol};
+use crate::provider::day_periods::{DayPeriodRules, DayPeriodRulesV1};
+use crate::provider::fields::{self, Field, FieldLength, FieldSymbol};
 use crate::provider::names::*;
 use crate::provider::pattern::PatternItem;
 use crate::provider::semantic_skeletons::marker_attrs;
@@ -87,7 +88,7 @@ impl YearNameLength {
             YearNameLength::Wide => FieldLength::Four,
             YearNameLength::Narrow => FieldLength::Five,
         };
-        ErrorField(fields::Field {
+        ErrorField(Field {
             symbol: FieldSymbol::Era,
             length: field_length,
         })
@@ -168,7 +169,7 @@ impl MonthNameLength {
             MonthNameLength::StandaloneWide => (Month::StandAlone, FieldLength::Four),
             MonthNameLength::StandaloneNarrow => (Month::StandAlone, FieldLength::Five),
         };
-        ErrorField(fields::Field {
+        ErrorField(Field {
             symbol: FieldSymbol::Month(field_symbol),
             length: field_length,
         })
@@ -275,7 +276,7 @@ impl WeekdayNameLength {
             WeekdayNameLength::StandaloneNarrow => (Weekday::StandAlone, FieldLength::Five),
             WeekdayNameLength::StandaloneShort => (Weekday::StandAlone, FieldLength::Six),
         };
-        ErrorField(fields::Field {
+        ErrorField(Field {
             symbol: FieldSymbol::Weekday(field_symbol),
             length: field_length,
         })
@@ -330,9 +331,9 @@ impl DayPeriodNameLength {
         field_length: FieldLength,
     ) -> Option<Self> {
         use fields::DayPeriod;
-        // Names for 'a' and 'b' are stored in the same data marker
+        // Names for 'a', 'b', and 'B' are stored in the same data marker
         let field_symbol = match field_symbol {
-            DayPeriod::NoonMidnight => DayPeriod::AmPm,
+            DayPeriod::NoonMidnight | DayPeriod::Flexible => DayPeriod::AmPm,
             other => other,
         };
         // UTS 35 says that "a..aaa" and "b..bbb" are all Abbreviated
@@ -354,7 +355,7 @@ impl DayPeriodNameLength {
             DayPeriodNameLength::Wide => FieldLength::Four,
             DayPeriodNameLength::Narrow => FieldLength::Five,
         };
-        ErrorField(fields::Field {
+        ErrorField(Field {
             symbol: FieldSymbol::DayPeriod(field_symbol),
             length: field_length,
         })
@@ -674,6 +675,7 @@ pub(crate) struct RawDateTimeNames<FSet: DateTimeNamesMarker> {
         <FSet::WeekdayNames as NamesContainer<WeekdayNamesV1, WeekdayNameLength>>::Container,
     dayperiod_names:
         <FSet::DayPeriodNames as NamesContainer<DayPeriodNamesV1, DayPeriodNameLength>>::Container,
+    dayperiod_rules: <FSet::DayPeriodRules as NamesContainer<DayPeriodRulesV1, ()>>::Container,
     zone_essentials: <FSet::ZoneEssentials as NamesContainer<tz::EssentialsV1, ()>>::Container,
     locations_root: <FSet::ZoneLocationsRoot as NamesContainer<tz::LocationsRootV1, ()>>::Container,
     locations: <FSet::ZoneLocations as NamesContainer<tz::LocationsOverrideV1, ()>>::Container,
@@ -702,6 +704,7 @@ impl<FSet: DateTimeNamesMarker> fmt::Debug for RawDateTimeNames<FSet> {
             .field("month_names", &self.month_names)
             .field("weekday_names", &self.weekday_names)
             .field("dayperiod_names", &self.dayperiod_names)
+            .field("dayperiod_rules", &self.dayperiod_rules)
             .field("zone_essentials", &self.zone_essentials)
             .field("locations_root", &self.locations_root)
             .field("locations", &self.locations)
@@ -725,6 +728,7 @@ impl<FSet: DateTimeNamesMarker> Clone for RawDateTimeNames<FSet> {
             month_names: self.month_names.clone(),
             weekday_names: self.weekday_names.clone(),
             dayperiod_names: self.dayperiod_names.clone(),
+            dayperiod_rules: self.dayperiod_rules.clone(),
             zone_essentials: self.zone_essentials.clone(),
             locations_root: self.locations_root.clone(),
             locations: self.locations.clone(),
@@ -749,6 +753,7 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
             month_names: FSet2::map_month_names(self.month_names),
             weekday_names: FSet2::map_weekday_names(self.weekday_names),
             dayperiod_names: FSet2::map_day_period_names(self.dayperiod_names),
+            dayperiod_rules: FSet2::map_day_period_rules(self.dayperiod_rules),
             zone_essentials: FSet2::map_zone_essentials(self.zone_essentials),
             locations_root: FSet2::map_zone_locations_root(self.locations_root),
             locations: FSet2::map_zone_locations(self.locations),
@@ -772,6 +777,7 @@ pub(crate) struct RawDateTimeNamesBorrowed<'l> {
     month_names: OptionalNames<MonthNameLength, &'l MonthNames<'l>>,
     weekday_names: OptionalNames<WeekdayNameLength, &'l LinearNames<'l>>,
     dayperiod_names: OptionalNames<DayPeriodNameLength, &'l LinearNames<'l>>,
+    dayperiod_rules: OptionalNames<(), &'l DayPeriodRules>,
     zone_essentials: OptionalNames<(), &'l tz::Essentials<'l>>,
     locations_root: OptionalNames<(), &'l tz::Locations<'l>>,
     locations: OptionalNames<(), &'l tz::Locations<'l>>,
@@ -1494,6 +1500,31 @@ impl<C, FSet: DateTimeNamesMarker> FixedCalendarDateTimeNames<C, FSet> {
         length: DayPeriodNameLength,
     ) -> Result<&mut Self, PatternLoadError> {
         self.load_day_period_names(&crate::provider::Baked, length)
+    }
+
+    /// Loads day period rules.
+    pub fn load_day_period_rules<P>(&mut self, provider: &P) -> Result<&mut Self, PatternLoadError>
+    where
+        P: DataProvider<DayPeriodRulesV1> + ?Sized,
+    {
+        let provider = DayPeriodRulesV1::bind(provider);
+        self.inner.load_day_period_rules(
+            &provider,
+            self.prefs,
+            ErrorField(Field {
+                symbol: FieldSymbol::DayPeriod(fields::DayPeriod::Flexible),
+                length: FieldLength::One,
+            }),
+        )?;
+        Ok(self)
+    }
+
+    /// Includes day period rules with compiled data.
+    ///
+    /// ✨ *Enabled with the `compiled_data` Cargo feature.*
+    #[cfg(feature = "compiled_data")]
+    pub fn include_day_period_rules(&mut self) -> Result<&mut Self, PatternLoadError> {
+        self.load_day_period_rules(&crate::provider::Baked)
     }
 
     /// Loads weekday names for the specified symbol and length.
@@ -2538,6 +2569,7 @@ impl<C: CldrCalendar, FSet: DateTimeNamesMarker> FixedCalendarDateTimeNames<C, F
             + DataProvider<C::MonthNamesV1>
             + DataProvider<WeekdayNamesV1>
             + DataProvider<DayPeriodNamesV1>
+            + DataProvider<DayPeriodRulesV1>
             + DataProvider<tz::EssentialsV1>
             + DataProvider<tz::LocationsOverrideV1>
             + DataProvider<tz::LocationsRootV1>
@@ -2559,6 +2591,7 @@ impl<C: CldrCalendar, FSet: DateTimeNamesMarker> FixedCalendarDateTimeNames<C, F
             &C::MonthNamesV1::bind(provider),
             &WeekdayNamesV1::bind(provider),
             &DayPeriodNamesV1::bind(provider),
+            &DayPeriodRulesV1::bind(provider),
             &tz::EssentialsV1::bind(provider),
             &tz::LocationsRootV1::bind(provider),
             &tz::LocationsOverrideV1::bind(provider),
@@ -2635,6 +2668,7 @@ impl<C: CldrCalendar, FSet: DateTimeNamesMarker> FixedCalendarDateTimeNames<C, F
             &C::MonthNamesV1::bind(&crate::provider::Baked),
             &WeekdayNamesV1::bind(&crate::provider::Baked),
             &DayPeriodNamesV1::bind(&crate::provider::Baked),
+            &DayPeriodRulesV1::bind(&crate::provider::Baked),
             &tz::EssentialsV1::bind(&crate::provider::Baked),
             &tz::LocationsOverrideV1::bind(&crate::provider::Baked),
             &tz::LocationsRootV1::bind(&crate::provider::Baked),
@@ -2874,6 +2908,10 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
                 DayPeriodNamesV1,
                 DayPeriodNameLength,
             >>::Container::new_empty(),
+            dayperiod_rules: <FSet::DayPeriodRules as NamesContainer<
+                DayPeriodRulesV1,
+                (),
+            >>::Container::new_empty(),
             zone_essentials: <FSet::ZoneEssentials as NamesContainer<
                 tz::EssentialsV1,
                 (),
@@ -2929,6 +2967,7 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
             month_names: self.month_names.get().inner,
             weekday_names: self.weekday_names.get().inner,
             dayperiod_names: self.dayperiod_names.get().inner,
+            dayperiod_rules: self.dayperiod_rules.get().inner,
             zone_essentials: self.zone_essentials.get().inner,
             locations_root: self.locations_root.get().inner,
             locations: self.locations.get().inner,
@@ -3019,6 +3058,33 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
         Ok(())
     }
 
+    pub(crate) fn load_day_period_rules<P>(
+        &mut self,
+        provider: &P,
+        prefs: DateTimeFormatterPreferences,
+        error_field: ErrorField,
+    ) -> Result<(), PatternLoadError>
+    where
+        P: BoundDataProvider<DayPeriodRulesV1> + ?Sized,
+    {
+        let locale = provider
+            .bound_marker()
+            .make_locale(prefs.locale_preferences);
+        // Normalize the request locale to language-only (suppressing script/region),
+        // because supplemental day period rules are strictly language-level in CLDR.
+        let lang_only = icu_locale_core::LanguageIdentifier::from(locale.language);
+        let locale = DataLocale::from(lang_only);
+        let req = DataRequest {
+            id: DataIdentifierBorrowed::for_locale(&locale),
+            ..Default::default()
+        };
+        self.dayperiod_rules
+            .load_put(provider, req, ())
+            .map_err(|e| MaybePayloadError::into_load_error(e, error_field))?
+            .map_err(|e| PatternLoadError::Data(e, error_field))?;
+        Ok(())
+    }
+
     pub(crate) fn load_weekday_names<P>(
         &mut self,
         provider: &P,
@@ -3055,7 +3121,7 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
         let locale = provider
             .bound_marker()
             .make_locale(prefs.locale_preferences);
-        let error_field = ErrorField(fields::Field {
+        let error_field = ErrorField(Field {
             symbol: FieldSymbol::TimeZone(fields::TimeZone::LocalizedOffset),
             length: FieldLength::Four,
         });
@@ -3084,7 +3150,7 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
         let locale = provider
             .bound_marker()
             .make_locale(prefs.locale_preferences);
-        let error_field = ErrorField(fields::Field {
+        let error_field = ErrorField(Field {
             symbol: FieldSymbol::TimeZone(fields::TimeZone::Location),
             length: FieldLength::Four,
         });
@@ -3117,7 +3183,7 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
         let locale = provider
             .bound_marker()
             .make_locale(prefs.locale_preferences);
-        let error_field = ErrorField(fields::Field {
+        let error_field = ErrorField(Field {
             symbol: FieldSymbol::TimeZone(fields::TimeZone::Location),
             length: FieldLength::Three,
         });
@@ -3148,7 +3214,7 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
         let locale = mz_generic_provider
             .bound_marker()
             .make_locale(prefs.locale_preferences);
-        let error_field = ErrorField(fields::Field {
+        let error_field = ErrorField(Field {
             symbol: FieldSymbol::TimeZone(fields::TimeZone::GenericNonLocation),
             length: FieldLength::Four,
         });
@@ -3204,7 +3270,7 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
         let locale = provider
             .bound_marker()
             .make_locale(prefs.locale_preferences);
-        let error_field = ErrorField(fields::Field {
+        let error_field = ErrorField(Field {
             symbol: FieldSymbol::TimeZone(fields::TimeZone::GenericNonLocation),
             length: FieldLength::One,
         });
@@ -3254,7 +3320,7 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
         let locale = mz_specific_provider
             .bound_marker()
             .make_locale(prefs.locale_preferences);
-        let error_field = ErrorField(fields::Field {
+        let error_field = ErrorField(Field {
             symbol: FieldSymbol::TimeZone(fields::TimeZone::SpecificNonLocation),
             length: FieldLength::Four,
         });
@@ -3310,7 +3376,7 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
         let locale = provider
             .bound_marker()
             .make_locale(prefs.locale_preferences);
-        let error_field = ErrorField(fields::Field {
+        let error_field = ErrorField(Field {
             symbol: FieldSymbol::TimeZone(fields::TimeZone::SpecificNonLocation),
             length: FieldLength::One,
         });
@@ -3522,6 +3588,7 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
         month_provider: &(impl BoundDataProvider<MonthNamesV1> + ?Sized),
         weekday_provider: &(impl BoundDataProvider<WeekdayNamesV1> + ?Sized),
         dayperiod_provider: &(impl BoundDataProvider<DayPeriodNamesV1> + ?Sized),
+        dayperiod_rules_provider: &(impl BoundDataProvider<DayPeriodRulesV1> + ?Sized),
         zone_essentials_provider: &(impl BoundDataProvider<tz::EssentialsV1> + ?Sized),
         locations_provider: &(impl BoundDataProvider<tz::LocationsOverrideV1> + ?Sized),
         locations_root_provider: &(impl BoundDataProvider<tz::LocationsRootV1> + ?Sized),
@@ -3616,6 +3683,9 @@ impl<FSet: DateTimeNamesMarker> RawDateTimeNames<FSet> {
                             .ok_or(PatternLoadError::UnsupportedLength(error_field))?,
                         error_field,
                     )?;
+                    if field_symbol == DayPeriod::Flexible {
+                        self.load_day_period_rules(dayperiod_rules_provider, prefs, error_field)?;
+                    }
                 }
 
                 ///// Time zone symbols /////
@@ -3926,7 +3996,7 @@ impl RawDateTimeNamesBorrowed<'_> {
         hour: icu_time::Hour,
         is_top_of_hour: bool,
     ) -> Result<&str, GetNameForDayPeriodError> {
-        use fields::DayPeriod::NoonMidnight;
+        use fields::DayPeriod::{Flexible, NoonMidnight};
         let day_period_name_length = DayPeriodNameLength::from_field(field_symbol, field_length)
             .ok_or(GetNameForDayPeriodError::InvalidFieldLength)?;
         let dayperiod_names = self
@@ -3934,6 +4004,23 @@ impl RawDateTimeNamesBorrowed<'_> {
             .get_with_variables(day_period_name_length)
             .ok_or(GetNameForDayPeriodError::NotLoaded)?;
         let option_value: Option<&str> = match (field_symbol, u8::from(hour), is_top_of_hour) {
+            (Flexible, hour, _) => {
+                let rules = self.dayperiod_rules.get_option();
+                // Look up the active DayPeriod enum value (0-7) chronologically for this hour.
+                let period_idx = rules.map(|r| r.lookup(hour) as usize);
+                // Flexible day period names are appended at indices 4..12 in `LinearNames`
+                // following standard day periods (am, pm, noon, midnight at 0..4).
+                let name = period_idx.and_then(|idx| dayperiod_names.names.get(4 + idx));
+                // If rules are missing or names are unpopulated for this specific flexible period,
+                // we fall back to the locale's own standard AM/PM names.
+                name.or_else(|| {
+                    if hour < 12 {
+                        dayperiod_names.am()
+                    } else {
+                        dayperiod_names.pm()
+                    }
+                })
+            }
             (NoonMidnight, 00, true) => dayperiod_names.midnight().or_else(|| dayperiod_names.am()),
             (NoonMidnight, 12, true) => dayperiod_names.noon().or_else(|| dayperiod_names.pm()),
             (_, hour, _) if hour < 12 => dayperiod_names.am(),

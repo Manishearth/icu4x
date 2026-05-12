@@ -36,6 +36,11 @@ icu_provider::data_marker!(
     /// `DayPeriodRulesV1` marker
     DayPeriodRulesV1,
     DayPeriodRules,
+    fallback_config = {
+        let mut config = icu_provider::fallback::LocaleFallbackConfig::default();
+        config.priority = icu_provider::fallback::LocaleFallbackPriority::Language;
+        config
+    },
 );
 
 /// Day periods.

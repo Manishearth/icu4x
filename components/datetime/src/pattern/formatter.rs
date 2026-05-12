@@ -717,4 +717,87 @@ mod tests {
 
         writeable::assert_try_writeable_eq!(formatted, "i", Ok(()));
     }
+
+    #[test]
+    fn test_flexible_dayperiod_formatting() {
+        let locale = icu_locale_core::locale!("zh-Hant").into();
+        #[derive(Debug)]
+        struct TestCase {
+            hour: u8,
+            expected: &'static str,
+        }
+        let cases = [
+            TestCase {
+                hour: 0,
+                expected: "凌晨12:00",
+            }, // Night1
+            TestCase {
+                hour: 4,
+                expected: "凌晨4:00",
+            }, // Night1
+            TestCase {
+                hour: 6,
+                expected: "清晨6:00",
+            }, // Morning1
+            TestCase {
+                hour: 9,
+                expected: "上午9:00",
+            }, // Morning2
+            TestCase {
+                hour: 12,
+                expected: "中午12:00",
+            }, // Afternoon1
+            TestCase {
+                hour: 15,
+                expected: "下午3:00",
+            }, // Afternoon2
+            TestCase {
+                hour: 21,
+                expected: "晚上9:00",
+            }, // Evening1
+        ];
+
+        let mut names: FixedCalendarDateTimeNames<Gregorian> =
+            FixedCalendarDateTimeNames::try_new(locale).unwrap();
+        names
+            .load_day_period_names(&crate::provider::Baked, DayPeriodNameLength::Wide)
+            .unwrap()
+            .load_day_period_rules(&crate::provider::Baked)
+            .unwrap();
+
+        let pattern: DateTimePattern = "BBBBh:mm".parse().unwrap();
+
+        for cas in cases {
+            let TestCase { hour, expected } = cas;
+            let datetime = DateTime {
+                date: Date::try_new_gregorian(2023, 11, 17).unwrap(),
+                time: Time::try_new(hour, 0, 0, 0).unwrap(),
+            };
+            let formatted = names.with_pattern_unchecked(&pattern).format(&datetime);
+            assert_try_writeable_eq!(formatted, expected, Ok(()), "{cas:?}");
+        }
+    }
+
+    #[test]
+    fn test_flexible_dayperiod_formatting_german_buddhist() {
+        let locale = icu_locale_core::locale!("de").into();
+        let mut names: FixedCalendarDateTimeNames<icu_calendar::cal::Buddhist> =
+            FixedCalendarDateTimeNames::try_new(locale).unwrap();
+        names
+            .load_day_period_names(&crate::provider::Baked, DayPeriodNameLength::Wide)
+            .unwrap()
+            .load_day_period_rules(&crate::provider::Baked)
+            .unwrap();
+
+        // In German Buddhist calendar, "BBBB h 'Uhr'" formats B as Wide flexible day period and h as hour
+        let pattern: DateTimePattern = "BBBB h 'Uhr'".parse().unwrap();
+        let datetime = DateTime {
+            date: Date::try_new_iso(2023, 11, 17)
+                .unwrap()
+                .to_calendar(icu_calendar::cal::Buddhist),
+            time: Time::try_new(13, 0, 0, 0).unwrap(),
+        };
+        let formatted = names.with_pattern_unchecked(&pattern).format(&datetime);
+        assert_try_writeable_eq!(formatted, "nachmittags 1 Uhr", Ok(()));
+    }
 }

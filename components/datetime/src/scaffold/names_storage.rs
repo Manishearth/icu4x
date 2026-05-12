@@ -6,6 +6,7 @@ use crate::error::ErrorField;
 use crate::pattern::{
     DayPeriodNameLength, MonthNameLength, PatternLoadError, WeekdayNameLength, YearNameLength,
 };
+use crate::provider::day_periods::*;
 use crate::provider::names::*;
 use crate::provider::time_zones::tz;
 use core::fmt;
@@ -30,6 +31,7 @@ pub trait DateTimeNamesMarker: UnstableSealed {
     type MonthNames: NamesContainer<MonthNamesV1, MonthNameLength>;
     type WeekdayNames: NamesContainer<WeekdayNamesV1, WeekdayNameLength>;
     type DayPeriodNames: NamesContainer<DayPeriodNamesV1, DayPeriodNameLength>;
+    type DayPeriodRules: NamesContainer<DayPeriodRulesV1, ()>;
     type ZoneEssentials: NamesContainer<tz::EssentialsV1, ()>;
     type ZoneLocations: NamesContainer<tz::LocationsOverrideV1, ()>;
     type ZoneLocationsRoot: NamesContainer<tz::LocationsRootV1, ()>;
@@ -119,6 +121,7 @@ impl_holder_trait!(YearNamesV1);
 impl_holder_trait!(MonthNamesV1);
 impl_holder_trait!(WeekdayNamesV1);
 impl_holder_trait!(DayPeriodNamesV1);
+impl_holder_trait!(DayPeriodRulesV1);
 impl_holder_trait!(tz::EssentialsV1);
 impl_holder_trait!(tz::LocationsOverrideV1);
 impl_holder_trait!(tz::LocationsRootV1);
@@ -436,6 +439,9 @@ pub trait DateTimeNamesFrom<M: DateTimeNamesMarker>: DateTimeNamesMarker {
     fn map_day_period_names(
         other: <M::DayPeriodNames as NamesContainer<DayPeriodNamesV1, DayPeriodNameLength>>::Container,
     ) -> <Self::DayPeriodNames as NamesContainer<DayPeriodNamesV1, DayPeriodNameLength>>::Container;
+    fn map_day_period_rules(
+        other: <M::DayPeriodRules as NamesContainer<DayPeriodRulesV1, ()>>::Container,
+    ) -> <Self::DayPeriodRules as NamesContainer<DayPeriodRulesV1, ()>>::Container;
     fn map_zone_essentials(
         other: <M::ZoneEssentials as NamesContainer<tz::EssentialsV1, ()>>::Container,
     ) -> <Self::ZoneEssentials as NamesContainer<tz::EssentialsV1, ()>>::Container;
@@ -483,6 +489,8 @@ where
         From<
             <M::DayPeriodNames as NamesContainer<DayPeriodNamesV1, DayPeriodNameLength>>::Container,
         >,
+    <Self::DayPeriodRules as NamesContainer<DayPeriodRulesV1, ()>>::Container:
+        From<<M::DayPeriodRules as NamesContainer<DayPeriodRulesV1, ()>>::Container>,
     <Self::ZoneEssentials as NamesContainer<tz::EssentialsV1, ()>>::Container:
         From<<M::ZoneEssentials as NamesContainer<tz::EssentialsV1, ()>>::Container>,
     <Self::ZoneLocations as NamesContainer<tz::LocationsOverrideV1, ()>>::Container:
@@ -529,6 +537,12 @@ where
         other: <M::DayPeriodNames as NamesContainer<DayPeriodNamesV1, DayPeriodNameLength>>::Container,
     ) -> <Self::DayPeriodNames as NamesContainer<DayPeriodNamesV1, DayPeriodNameLength>>::Container
     {
+        other.into()
+    }
+    #[inline]
+    fn map_day_period_rules(
+        other: <M::DayPeriodRules as NamesContainer<DayPeriodRulesV1, ()>>::Container,
+    ) -> <Self::DayPeriodRules as NamesContainer<DayPeriodRulesV1, ()>>::Container {
         other.into()
     }
     #[inline]

@@ -187,6 +187,7 @@ where
     type MonthNames = DT::MonthNames;
     type WeekdayNames = DT::WeekdayNames;
     type DayPeriodNames = DT::DayPeriodNames;
+    type DayPeriodRules = DT::DayPeriodRules;
     type ZoneEssentials = Z::ZoneEssentials;
     type ZoneLocations = Z::ZoneLocations;
     type ZoneLocationsRoot = Z::ZoneLocationsRoot;

@@ -5,7 +5,7 @@
 use super::*;
 use crate::fieldsets::enums::*;
 use crate::provider::semantic_skeletons::{DatetimePatternsGlueV1, GluePattern};
-use crate::provider::{names::*, semantic_skeletons::*, time_zones::tz};
+use crate::provider::{day_periods::*, names::*, semantic_skeletons::*, time_zones::tz};
 use icu_calendar::types::{DayOfMonth, DayOfYear, MonthInfo, RataDie, Weekday, YearInfo};
 use icu_provider::marker::NeverMarker;
 use icu_time::{
@@ -20,6 +20,7 @@ impl DateTimeNamesMarker for DateFieldSet {
     type MonthNames = datetime_marker_helper!(@names/month, yes);
     type WeekdayNames = datetime_marker_helper!(@names/weekday, yes);
     type DayPeriodNames = datetime_marker_helper!(@names/dayperiod,);
+    type DayPeriodRules = datetime_marker_helper!(@names/dayperiodrules,);
     type ZoneEssentials = datetime_marker_helper!(@names/zone/essentials,);
     type ZoneLocations = datetime_marker_helper!(@names/zone/locations,);
     type ZoneLocationsRoot = datetime_marker_helper!(@names/zone/locations_root,);
@@ -70,6 +71,7 @@ impl DateTimeNamesMarker for CalendarPeriodFieldSet {
     type MonthNames = datetime_marker_helper!(@names/month, yes);
     type WeekdayNames = datetime_marker_helper!(@names/weekday,);
     type DayPeriodNames = datetime_marker_helper!(@names/dayperiod,);
+    type DayPeriodRules = datetime_marker_helper!(@names/dayperiodrules,);
     type ZoneEssentials = datetime_marker_helper!(@names/zone/essentials,);
     type ZoneLocations = datetime_marker_helper!(@names/zone/locations,);
     type ZoneLocationsRoot = datetime_marker_helper!(@names/zone/locations_root,);
@@ -120,6 +122,7 @@ impl DateTimeNamesMarker for TimeFieldSet {
     type MonthNames = datetime_marker_helper!(@names/month,);
     type WeekdayNames = datetime_marker_helper!(@names/weekday,);
     type DayPeriodNames = datetime_marker_helper!(@names/dayperiod, yes);
+    type DayPeriodRules = datetime_marker_helper!(@names/dayperiodrules, yes);
     type ZoneEssentials = datetime_marker_helper!(@names/zone/essentials,);
     type ZoneLocations = datetime_marker_helper!(@names/zone/locations,);
     type ZoneLocationsRoot = datetime_marker_helper!(@names/zone/locations_root,);
@@ -135,6 +138,7 @@ impl DateTimeNamesMarker for TimeFieldSet {
 
 impl TimeMarkers for TimeFieldSet {
     type DayPeriodNamesV1 = datetime_marker_helper!(@dayperiods, yes);
+    type DayPeriodRulesV1 = datetime_marker_helper!(@names/dayperiodrules, yes);
     type TimeSkeletonPatternsV1 = datetime_marker_helper!(@times, yes);
     type HourInput = datetime_marker_helper!(@input/hour, yes);
     type MinuteInput = datetime_marker_helper!(@input/minute, yes);
@@ -156,6 +160,7 @@ impl DateTimeNamesMarker for DateAndTimeFieldSet {
     type MonthNames = datetime_marker_helper!(@names/month, yes);
     type WeekdayNames = datetime_marker_helper!(@names/weekday, yes);
     type DayPeriodNames = datetime_marker_helper!(@names/dayperiod, yes);
+    type DayPeriodRules = datetime_marker_helper!(@names/dayperiodrules, yes);
     type ZoneEssentials = datetime_marker_helper!(@names/zone/essentials,);
     type ZoneLocations = datetime_marker_helper!(@names/zone/locations,);
     type ZoneLocationsRoot = datetime_marker_helper!(@names/zone/locations_root,);
@@ -183,6 +188,7 @@ impl DateTimeNamesMarker for ZoneFieldSet {
     type MonthNames = datetime_marker_helper!(@names/month,);
     type WeekdayNames = datetime_marker_helper!(@names/weekday,);
     type DayPeriodNames = datetime_marker_helper!(@names/dayperiod,);
+    type DayPeriodRules = datetime_marker_helper!(@names/dayperiodrules,);
     type ZoneEssentials = datetime_marker_helper!(@names/zone/essentials, yes);
     type ZoneLocations = datetime_marker_helper!(@names/zone/locations, yes);
     type ZoneLocationsRoot = datetime_marker_helper!(@names/zone/locations_root, yes);
@@ -227,6 +233,7 @@ impl DateTimeNamesMarker for CompositeDateTimeFieldSet {
     type MonthNames = datetime_marker_helper!(@names/month, yes);
     type WeekdayNames = datetime_marker_helper!(@names/weekday, yes);
     type DayPeriodNames = datetime_marker_helper!(@names/dayperiod, yes);
+    type DayPeriodRules = datetime_marker_helper!(@names/dayperiodrules, yes);
     type ZoneEssentials = datetime_marker_helper!(@names/zone/essentials,);
     type ZoneLocations = datetime_marker_helper!(@names/zone/locations,);
     type ZoneLocationsRoot = datetime_marker_helper!(@names/zone/locations_root,);
@@ -254,6 +261,7 @@ impl DateTimeNamesMarker for CompositeFieldSet {
     type MonthNames = datetime_marker_helper!(@names/month, yes);
     type WeekdayNames = datetime_marker_helper!(@names/weekday, yes);
     type DayPeriodNames = datetime_marker_helper!(@names/dayperiod, yes);
+    type DayPeriodRules = datetime_marker_helper!(@names/dayperiodrules, yes);
     type ZoneEssentials = datetime_marker_helper!(@names/zone/essentials, yes);
     type ZoneLocations = datetime_marker_helper!(@names/zone/locations, yes);
     type ZoneLocationsRoot = datetime_marker_helper!(@names/zone/locations_root, yes);

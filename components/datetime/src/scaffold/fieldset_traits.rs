@@ -4,7 +4,7 @@
 
 use crate::{
     provider::semantic_skeletons::GluePattern,
-    provider::{names::*, packed_pattern::*, time_zones::tz},
+    provider::{day_periods::*, names::*, packed_pattern::*, time_zones::tz},
     scaffold::*,
 };
 use icu_calendar::{
@@ -104,6 +104,8 @@ pub trait TimeMarkers: UnstableSealed {
     type TimeSkeletonPatternsV1: DataMarker<DataStruct = PackedPatterns<'static>>;
     /// Marker for loading day period names.
     type DayPeriodNamesV1: DataMarker<DataStruct = LinearNames<'static>>;
+    /// Marker for loading day period rules.
+    type DayPeriodRulesV1: DataMarker<DataStruct = DayPeriodRules>;
 }
 
 /// A trait associating types for time zone formatting
@@ -279,6 +281,7 @@ pub trait AllFixedCalendarFormattingDataMarkers<C: CldrCalendar, FSet: DateTimeM
     + DataProvider<<FSet::D as TypedDateDataMarkers<C>>::MonthNamesV1>
     + DataProvider<<FSet::D as TypedDateDataMarkers<C>>::WeekdayNamesV1>
     + DataProvider<<FSet::T as TimeMarkers>::DayPeriodNamesV1>
+    + DataProvider<<FSet::T as TimeMarkers>::DayPeriodRulesV1>
     + DataProvider<<FSet::Z as ZoneMarkers>::EssentialsV1>
     + DataProvider<<FSet::Z as ZoneMarkers>::LocationsV1>
     + DataProvider<<FSet::Z as ZoneMarkers>::LocationsRootV1>
@@ -312,6 +315,7 @@ where
         + DataProvider<<FSet::D as TypedDateDataMarkers<C>>::DateSkeletonPatternsV1>
         + DataProvider<<FSet::D as TypedDateDataMarkers<C>>::WeekdayNamesV1>
         + DataProvider<<FSet::T as TimeMarkers>::DayPeriodNamesV1>
+        + DataProvider<<FSet::T as TimeMarkers>::DayPeriodRulesV1>
         + DataProvider<<FSet::T as TimeMarkers>::TimeSkeletonPatternsV1>
         + DataProvider<<FSet::Z as ZoneMarkers>::EssentialsV1>
         + DataProvider<<FSet::Z as ZoneMarkers>::LocationsV1>
@@ -417,6 +421,7 @@ pub trait AllAnyCalendarFormattingDataMarkers<FSet: DateTimeMarkers>:
     + DataProvider<<<FSet::D as DateDataMarkers>::Month as CalMarkers<MonthNamesV1>>::Roc>
     + DataProvider<<FSet::D as DateDataMarkers>::WeekdayNamesV1>
     + DataProvider<<FSet::T as TimeMarkers>::DayPeriodNamesV1>
+    + DataProvider<<FSet::T as TimeMarkers>::DayPeriodRulesV1>
     + DataProvider<<FSet::Z as ZoneMarkers>::EssentialsV1>
     + DataProvider<<FSet::Z as ZoneMarkers>::LocationsV1>
     + DataProvider<<FSet::Z as ZoneMarkers>::LocationsRootV1>
@@ -470,6 +475,7 @@ where
         + DataProvider<<<FSet::D as DateDataMarkers>::Month as CalMarkers<MonthNamesV1>>::Roc>
         + DataProvider<<FSet::D as DateDataMarkers>::WeekdayNamesV1>
         + DataProvider<<FSet::T as TimeMarkers>::DayPeriodNamesV1>
+        + DataProvider<<FSet::T as TimeMarkers>::DayPeriodRulesV1>
         + DataProvider<<FSet::Z as ZoneMarkers>::EssentialsV1>
         + DataProvider<<FSet::Z as ZoneMarkers>::LocationsV1>
         + DataProvider<<FSet::Z as ZoneMarkers>::LocationsRootV1>
@@ -546,6 +552,7 @@ impl TimeMarkers for () {
     type NanosecondInput = ();
     type TimeSkeletonPatternsV1 = NeverMarker<PackedPatterns<'static>>;
     type DayPeriodNamesV1 = NeverMarker<LinearNames<'static>>;
+    type DayPeriodRulesV1 = NeverMarker<DayPeriodRules>;
 }
 
 impl ZoneMarkers for () {
@@ -745,6 +752,9 @@ macro_rules! datetime_marker_helper {
     };
     (@names/dayperiod, yes) => {
         DayPeriodNamesV1
+    };
+    (@names/dayperiodrules, yes) => {
+        DayPeriodRulesV1
     };
     (@names/zone/essentials, yes) => {
         tz::EssentialsV1

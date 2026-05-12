@@ -59,7 +59,7 @@ pub use crate::combo::Combo;
 use crate::{
     options::*,
     provider::semantic_skeletons::{DatetimePatternsGlueV1, GluePattern},
-    provider::{fields, names::*, semantic_skeletons::*, time_zones::tz},
+    provider::{day_periods::*, fields, names::*, semantic_skeletons::*, time_zones::tz},
     raw::neo::RawOptions,
     scaffold::*,
 };
@@ -515,6 +515,7 @@ macro_rules! impl_date_or_calendar_period_marker {
             type MonthNames = datetime_marker_helper!(@names/month, $($months_yes)?);
             type WeekdayNames = datetime_marker_helper!(@names/weekday, $($weekdays_yes)?);
             type DayPeriodNames = datetime_marker_helper!(@names/dayperiod,);
+            type DayPeriodRules = datetime_marker_helper!(@names/dayperiodrules,);
             type ZoneEssentials = datetime_marker_helper!(@names/zone/essentials,);
             type ZoneLocations = datetime_marker_helper!(@names/zone/locations,);
             type ZoneLocationsRoot = datetime_marker_helper!(@names/zone/locations_root,);
@@ -679,6 +680,7 @@ macro_rules! impl_date_marker {
             type MonthNames = datetime_marker_helper!(@names/month, $($months_yes)?);
             type WeekdayNames = datetime_marker_helper!(@names/weekday, $($weekdays_yes)?);
             type DayPeriodNames = datetime_marker_helper!(@names/dayperiod, yes);
+            type DayPeriodRules = datetime_marker_helper!(@names/dayperiodrules, yes);
             type ZoneEssentials = datetime_marker_helper!(@names/zone/essentials,);
             type ZoneLocations = datetime_marker_helper!(@names/zone/locations,);
             type ZoneLocationsRoot = datetime_marker_helper!(@names/zone/locations_root,);
@@ -714,6 +716,7 @@ macro_rules! impl_date_marker {
         impl TimeMarkers for $type_time {
             // TODO(#6497): Consider making dayperiods optional
             type DayPeriodNamesV1 = datetime_marker_helper!(@dayperiods, yes);
+            type DayPeriodRulesV1 = datetime_marker_helper!(@names/dayperiodrules, yes);
             type TimeSkeletonPatternsV1 = datetime_marker_helper!(@times, yes);
             type HourInput = datetime_marker_helper!(@input/hour, yes);
             type MinuteInput = datetime_marker_helper!(@input/minute, yes);
@@ -853,6 +856,7 @@ macro_rules! impl_time_marker {
             type MonthNames = datetime_marker_helper!(@names/month,);
             type WeekdayNames = datetime_marker_helper!(@names/weekday,);
             type DayPeriodNames = datetime_marker_helper!(@names/dayperiod, $($dayperiods_yes)?);
+            type DayPeriodRules = datetime_marker_helper!(@names/dayperiodrules, $($dayperiods_yes)?);
             type ZoneEssentials = datetime_marker_helper!(@names/zone/essentials,);
             type ZoneLocations = datetime_marker_helper!(@names/zone/locations,);
             type ZoneLocationsRoot = datetime_marker_helper!(@names/zone/locations_root,);
@@ -867,6 +871,7 @@ macro_rules! impl_time_marker {
         }
         impl TimeMarkers for $type {
             type DayPeriodNamesV1 = datetime_marker_helper!(@dayperiods, $($dayperiods_yes)?);
+            type DayPeriodRulesV1 = datetime_marker_helper!(@names/dayperiodrules, $($dayperiods_yes)?);
             type TimeSkeletonPatternsV1 = datetime_marker_helper!(@times, yes);
             type HourInput = datetime_marker_helper!(@input/hour, $($hour_yes)?);
             type MinuteInput = datetime_marker_helper!(@input/minute, $($minute_yes)?);
@@ -964,6 +969,7 @@ macro_rules! impl_zone_marker {
             type MonthNames = datetime_marker_helper!(@names/month,);
             type WeekdayNames = datetime_marker_helper!(@names/weekday,);
             type DayPeriodNames = datetime_marker_helper!(@names/dayperiod,);
+            type DayPeriodRules = datetime_marker_helper!(@names/dayperiodrules,);
             type ZoneEssentials = datetime_marker_helper!(@names/zone/essentials, $($zone_essentials_yes)?);
             type ZoneLocations = datetime_marker_helper!(@names/zone/locations, $($zone_locations_yes)?);
             type ZoneLocationsRoot = datetime_marker_helper!(@names/zone/locations_root, $($zone_locations_yes)?);

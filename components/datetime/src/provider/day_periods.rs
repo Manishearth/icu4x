@@ -20,7 +20,7 @@ use icu_provider::prelude::*;
 #[yoke(prove_covariance_manually)]
 pub struct DayPeriodRules {
     /// A bitmask of present day periods. Bit `i` is set if the period with
-    /// enum value `i` is present in the locale's rules.
+    /// enum value `i` is present.
     pub presence: u8,
     /// A 24-bit map (packed into 3 bytes) where bit `h` is set if a transition
     /// to the next present period occurs at hour `h`.
@@ -43,27 +43,21 @@ icu_provider::data_marker!(
 #[cfg_attr(feature = "datagen", derive(serde::Serialize, databake::Bake))]
 #[cfg_attr(feature = "datagen", databake(path = icu_datetime::provider::day_periods))]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[allow(missing_docs, reason = "Trivial representation of CLDR day periods")]
 pub enum DayPeriod {
-    /// Morning 1
     Morning1 = 0,
-    /// Morning 2
     Morning2 = 1,
-    /// Afternoon 1
     Afternoon1 = 2,
-    /// Afternoon 2
     Afternoon2 = 3,
-    /// Evening 1
     Evening1 = 4,
-    /// Evening 2
     Evening2 = 5,
-    /// Night 1
     Night1 = 6,
-    /// Night 2
     Night2 = 7,
 }
 
 impl DayPeriod {
     /// Parses a CLDR day period name into a `DayPeriod`.
+    #[cfg(feature = "datagen")]
     pub fn from_cldr_name(name: &str) -> Option<Self> {
         match name {
             "morning1" => Some(DayPeriod::Morning1),
@@ -79,7 +73,7 @@ impl DayPeriod {
     }
 
     /// Converts a u8 index to a `DayPeriod` enum.
-    pub fn from_u8(v: u8) -> Option<Self> {
+    pub(crate) fn from_u8(v: u8) -> Option<Self> {
         match v {
             0 => Some(DayPeriod::Morning1),
             1 => Some(DayPeriod::Morning2),
@@ -97,6 +91,7 @@ impl DayPeriod {
 impl DayPeriodRules {
     /// Looks up the day period for a given hour (0-24).
     pub fn lookup(&self, hour: u8) -> DayPeriod {
+        debug_assert!(hour <= 24, "hour must be in 0..=24");
         // Make the lookup cyclic and handle hour 24 (as hour 0 of next day).
         let hour = hour % 24;
 
@@ -116,40 +111,124 @@ impl DayPeriodRules {
             0,
         ]);
 
-        // Create a mask for bits 0..=hour.
-        // For hour 0, mask is 0x1 (bit 0).
-        // For hour 23, mask is 0x00FF_FFFF (bits 0..23).
-        // Since hour < 24, (hour + 1) <= 24, so 1u32 << (hour + 1) fits in u32 without overflow.
-        let mask = (1u32 << (hour + 1)) - 1;
-        // Count how many transitions occurred up to `hour`.
-        let transitions = (transitions_u32 & mask).count_ones() as usize;
+        // Shifting left by `31 - hour` moves bits `0..=hour` to the top of the `u32`,
+        // shifting out all later transitions. `count_ones()` then counts exactly the
+        // transitions that occurred up to `hour`.
+        let transitions = (transitions_u32 << (31 - hour)).count_ones() as usize;
 
         // Assume first period (at hour 0) is the last present period in the sorted sequence.
         // Adding `transitions` moves us forward in the sequence.
         // We subtract 1 and modulo `count` to start from the last period (index count - 1)
         // and wrap around correctly.
-        let which_period = (transitions + count - 1) % count;
+        // target_period is the target period's index amongst the present periods in sorted order.
+        let target_period = (transitions + count - 1) % count;
 
-        // Find the which_period-th set bit in presence (0-indexed).
-        let mut period_idx = 0u8;
+        // Find the target_period-th set bit in presence (0-indexed).
+        // Number of period bits found so far
         let mut found_count = 0;
-        for i in 0..8 {
+        // The bit index we are currently inspecting
+        let mut i = 0;
+        let period_idx = loop {
+            // Is period at bit index `i` present?
             if (self.presence & (1 << i)) != 0 {
-                if found_count == which_period {
-                    period_idx = i;
-                    break;
+                // Is this the target_periodth index?
+                if found_count == target_period {
+                    break i;
                 }
+                // Found a period bit
                 found_count += 1;
             }
-        }
+            i += 1;
+            if i >= 8 {
+                // Unreachable: `target_period` is % count, which caps it to `count`,
+                // the number of set bits in `presence` (minus one), which must be at most 7
+                // `found_count` only increases when a bit is found, so it will
+                // iterate from 0 to `count - 1`, so the above loop is guaranteed to eventually
+                // find target_period
+                debug_assert!(false, "target_period >= presence.count_ones()");
+                break 0;
+            }
+        };
 
         if let Some(period) = DayPeriod::from_u8(period_idx) {
             period
         } else {
-            // This should be unreachable by construction as which_period < count.
+            // Unreachable since `i` should not go above 8 above, and `period_idx` is
+            // assigned from `i`
             debug_assert!(false, "Unreachable day period index: {}", period_idx);
             DayPeriod::Morning1 // Fallback
         }
+    }
+}
+
+#[cfg(feature = "datagen")]
+impl DayPeriodRules {
+    /// Computes `DayPeriodRules` from CLDR rule entries.
+    ///
+    /// Entries is a map from `(start_hour, end_hour)` tuple ranges to `DayPeriod`.
+    /// Returns `None` if entries is empty, or if there are overlaps or gaps in 24-hour coverage.
+    pub fn from_cldr_rules(
+        entries: &alloc::collections::BTreeMap<(u8, u8), DayPeriod>,
+    ) -> Option<Self> {
+        if entries.is_empty() {
+            return None;
+        }
+
+        let mut presence = 0u8;
+        for &period in entries.values() {
+            presence |= 1 << (period as u8);
+        }
+
+        let mut hour_periods = [None; 24];
+        for (&(start, end), &period) in entries {
+            let mut h = start;
+            loop {
+                assert!(
+                    hour_periods[h as usize].is_none(),
+                    "Overlapping day period rules detected at hour {}",
+                    h
+                );
+                hour_periods[h as usize] = Some(period as u8);
+                h = (h + 1) % 24;
+                if h == end || (h == 0 && end == 24) {
+                    break;
+                }
+            }
+        }
+
+        let hour_periods =
+            hour_periods.map(|p| p.expect("Gap detected in 24-hour day period coverage"));
+
+        let mut current_period = entries.values().map(|&p| p as u8).max().unwrap();
+        let mut transitions_u32 = 0u32;
+
+        for h in 0usize..24usize {
+            let expected_period = current_period;
+            let actual_period = hour_periods[h];
+
+            if actual_period != expected_period {
+                transitions_u32 |= 1 << h;
+                let mut next = current_period + 1;
+                current_period = loop {
+                    next %= 8;
+                    if (presence & (1 << next)) != 0 {
+                        break next;
+                    }
+                    next += 1;
+                };
+                if actual_period != current_period {
+                    current_period = actual_period;
+                }
+            }
+        }
+
+        let bytes = transitions_u32.to_le_bytes();
+        let transitions = [bytes[0], bytes[1], bytes[2]];
+
+        Some(DayPeriodRules {
+            presence,
+            transitions,
+        })
     }
 }
 
@@ -173,11 +252,12 @@ mod tests {
         transitions[2] |= 1 << 2;
 
         let rules = DayPeriodRules {
-            presence: 69,
+            presence: (1 << (DayPeriod::Morning1 as u8))
+                | (1 << (DayPeriod::Afternoon1 as u8))
+                | (1 << (DayPeriod::Night1 as u8)),
             transitions,
         };
 
-        // Assume first period is Night1 (6) because it's the last night period.
         // At hour 0, no transition, so it should be Night1.
         assert_eq!(rules.lookup(0), DayPeriod::Night1);
         assert_eq!(rules.lookup(5), DayPeriod::Night1);
@@ -196,6 +276,23 @@ mod tests {
 
         // Hour 24 should be same as hour 0.
         assert_eq!(rules.lookup(24), DayPeriod::Night1);
+    }
+
+    #[cfg(feature = "datagen")]
+    #[test]
+    fn test_constructor() {
+        let mut entries = std::collections::BTreeMap::new();
+        entries.insert((6, 12), DayPeriod::Morning1);
+        entries.insert((12, 18), DayPeriod::Afternoon1);
+        entries.insert((18, 21), DayPeriod::Evening1);
+        entries.insert((21, 6), DayPeriod::Night1);
+
+        let rules = DayPeriodRules::from_cldr_rules(&entries).unwrap();
+        assert_eq!(rules.lookup(0), DayPeriod::Night1);
+        assert_eq!(rules.lookup(6), DayPeriod::Morning1);
+        assert_eq!(rules.lookup(12), DayPeriod::Afternoon1);
+        assert_eq!(rules.lookup(18), DayPeriod::Evening1);
+        assert_eq!(rules.lookup(21), DayPeriod::Night1);
     }
 
     #[cfg(feature = "compiled_data")]

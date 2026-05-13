@@ -56,10 +56,7 @@ pub(crate) fn compute_day_periods(
         return None;
     }
 
-    let mut transitions_u32 = 0u32;
-
-    // Entries stores parsed CLDR rules as (period_idx, start_hour, end_hour) tuples.
-    let mut entries = Vec::new();
+    let mut entries = std::collections::BTreeMap::new();
 
     for (period, rule) in rules {
         if rule.at.is_some() {
@@ -71,62 +68,15 @@ pub(crate) fn compute_day_periods(
             );
         }
         if let Some(period_enum) = DayPeriod::from_cldr_name(period) {
-            let idx = period_enum as u8;
             if let (Some(from), Some(before)) = (&rule.from, &rule.before) {
                 let start = parse_hour(from);
                 let end = parse_hour(before);
-                entries.push((idx, start, end));
+                entries.insert((start, end), period_enum);
             }
         }
     }
 
-    // Sort by start time so we can iterate chronologically to determine active periods.
-    entries.sort_by_key(|e| e.1);
-
-    if entries.is_empty() {
-        return None;
-    }
-
-    // Compute presence bitmask from entries.
-    let mut presence = 0u8;
-    for entry in &entries {
-        presence |= 1 << entry.0;
-    }
-
-    // Find the initial active period at hour 0.
-    // By definition, this is the last present period in the sorted sequence of present periods,
-    // which corresponds to the maximum period index present in entries.
-    let mut current_period = entries.iter().map(|e| e.0).max().unwrap();
-
-    // Determine the active period index (0-7) at each hour (0-23).
-    let hour_periods = compute_hour_periods(&entries);
-
-    // Compute transitions by detecting transitions between expected and actual periods.
-    for h in 0..24 {
-        let expected_period = current_period;
-        let actual_period = hour_periods[h as usize];
-
-        if actual_period != expected_period {
-            // A transition occurred at hour h.
-            transitions_u32 |= 1 << h;
-
-            // Advance to the next present period in the sequence.
-            current_period = next_present_period(presence, current_period);
-
-            // If it still doesn't match, resync to the actual period.
-            if actual_period != current_period {
-                current_period = actual_period;
-            }
-        }
-    }
-
-    let bytes = transitions_u32.to_le_bytes();
-    let transitions = [bytes[0], bytes[1], bytes[2]];
-
-    Some(DayPeriodRules {
-        presence,
-        transitions,
-    })
+    DayPeriodRules::from_cldr_rules(&entries)
 }
 
 impl IterableDataProviderCached<DayPeriodRulesV1> for SourceDataProvider {
@@ -142,8 +92,7 @@ impl IterableDataProviderCached<DayPeriodRulesV1> for SourceDataProvider {
             .iter()
             .filter_map(|(l, rules)| {
                 let langid: icu::locale::LanguageIdentifier = l.parse().unwrap();
-                let has_flexible = rules.keys().any(|k| DayPeriod::from_cldr_name(k).is_some());
-                if has_flexible {
+                if compute_day_periods(rules, l).is_some() {
                     Some(DataIdentifierCow::from_locale(DataLocale::from(langid)))
                 } else {
                     None
@@ -168,37 +117,6 @@ fn parse_hour(s: &str) -> u8 {
         }
     }
     hour
-}
-
-/// Finds the next present period index after `current` (wrapping around) in the presence bitmask.
-/// Assumes presence is non-zero.
-fn next_present_period(presence: u8, current: u8) -> u8 {
-    let mut next = current + 1;
-    loop {
-        next %= 8;
-        if (presence & (1 << next)) != 0 {
-            return next;
-        }
-        next += 1;
-    }
-}
-
-/// Computes the active period index (0-7) for each of the 24 hours.
-fn compute_hour_periods(entries: &[(u8, u8, u8)]) -> [u8; 24] {
-    let mut hour_periods = [0u8; 24];
-    for entry in entries {
-        let start = entry.1;
-        let end = entry.2;
-        let mut h = start;
-        loop {
-            hour_periods[h as usize] = entry.0;
-            h = (h + 1) % 24;
-            if h == end || (h == 0 && end == 24) {
-                break;
-            }
-        }
-    }
-    hour_periods
 }
 
 #[cfg(test)]

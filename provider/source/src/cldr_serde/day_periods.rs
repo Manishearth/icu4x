@@ -26,6 +26,5 @@ pub struct DayPeriodRule {
     #[serde(rename = "_before")]
     pub before: Option<String>,
     #[serde(rename = "_at")]
-    #[allow(dead_code)]
     pub at: Option<String>,
 }

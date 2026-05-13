@@ -89,11 +89,9 @@ impl DayPeriod {
 }
 
 impl DayPeriodRules {
-    /// Looks up the day period for a given hour (0-24).
+    /// Looks up the day period for a given hour (0-23).
     pub fn lookup(&self, hour: u8) -> DayPeriod {
-        debug_assert!(hour <= 24, "hour must be in 0..=24");
-        // Make the lookup cyclic and handle hour 24 (as hour 0 of next day).
-        let hour = hour % 24;
+        debug_assert!(hour < 24, "hour must be in 0..24");
 
         // GIGO: If presence is 0 (bad data), we return Morning1 as a safe fallback.
         if self.presence == 0 {

@@ -72,7 +72,13 @@ pub(crate) fn compute_day_periods(
                 let start = parse_hour(from);
                 let end = parse_hour(before);
                 entries.insert((start, end), period_enum);
+            } else {
+                log::warn!(
+                    "Did not have from/before values for rule {period} in locale {locale_str}"
+                )
             }
+        } else if period != "morning" && period != "afternoon" {
+            log::warn!("Unknown range period found {period} in locale {locale_str}");
         }
     }
 
@@ -181,6 +187,5 @@ mod tests {
         assert_eq!(rules.lookup(20), DayPeriod::Evening1);
         assert_eq!(rules.lookup(21), DayPeriod::Night1);
         assert_eq!(rules.lookup(23), DayPeriod::Night1);
-        assert_eq!(rules.lookup(24), DayPeriod::Night1); // Should wrap to 0
     }
 }

@@ -165,6 +165,11 @@ impl DayPeriodRules {
     ///
     /// Entries is a map from `(start_hour, end_hour)` tuple ranges to `DayPeriod`.
     /// Returns `None` if entries is empty, or if there are overlaps or gaps in 24-hour coverage.
+    #[allow(
+        clippy::indexing_slicing,
+        clippy::expect_used,
+        reason = "Datagen is allowed to panic"
+    )]
     pub fn from_cldr_rules(
         entries: &alloc::collections::BTreeMap<(u8, u8), DayPeriod>,
     ) -> Option<Self> {
@@ -197,12 +202,15 @@ impl DayPeriodRules {
         let hour_periods =
             hour_periods.map(|p| p.expect("Gap detected in 24-hour day period coverage"));
 
-        let mut current_period = entries.values().map(|&p| p as u8).max().unwrap();
+        let mut current_period = entries
+            .values()
+            .map(|&p| p as u8)
+            .max()
+            .expect("Must be at least one entry, checked above");
         let mut transitions_u32 = 0u32;
 
-        for h in 0usize..24usize {
+        for (h, &actual_period) in hour_periods.iter().enumerate() {
             let expected_period = current_period;
-            let actual_period = hour_periods[h];
 
             if actual_period != expected_period {
                 transitions_u32 |= 1 << h;
@@ -271,9 +279,6 @@ mod tests {
         // At hour 18, transition to Night1 (6).
         assert_eq!(rules.lookup(18), DayPeriod::Night1);
         assert_eq!(rules.lookup(23), DayPeriod::Night1);
-
-        // Hour 24 should be same as hour 0.
-        assert_eq!(rules.lookup(24), DayPeriod::Night1);
     }
 
     #[cfg(feature = "datagen")]

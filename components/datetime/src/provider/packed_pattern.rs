@@ -278,7 +278,6 @@ impl<'a> GenericUnpackedPatterns<PluralElements<Pattern<'a>>> {
             elements.as_slice().into()
         })
     }
-
 }
 
 impl<T> GenericUnpackedPatterns<T> {
@@ -730,7 +729,7 @@ mod _serde {
         }
     }
 
-    impl<'de, 'data> serde::Deserialize<'de>
+    impl<'de, 'data> Deserialize<'de>
         for GenericPackedPatterns<'data, PluralElementsPackedULE<ZeroSlice<PatternItem>>>
     where
         'de: 'data,
@@ -739,16 +738,19 @@ mod _serde {
         where
             D: serde::Deserializer<'de>,
         {
-            deserialize_helper::<_, PluralElements<reference::Pattern>, _>(deserializer, |elements| {
-                let elements: Vec<PluralElements<Pattern<'static>>> = elements
-                    .into_iter()
-                    .map(|plural_elements| {
-                        plural_elements.map(|pattern| pattern.to_runtime_pattern())
-                    })
-                    .collect();
+            deserialize_helper::<_, PluralElements<reference::Pattern>, _>(
+                deserializer,
+                |elements| {
+                    let elements: Vec<PluralElements<Pattern<'static>>> = elements
+                        .into_iter()
+                        .map(|plural_elements| {
+                            plural_elements.map(|pattern| pattern.to_runtime_pattern())
+                        })
+                        .collect();
 
-                let packed_elements: Vec<PluralElements<(FourBitMetadata, &ZeroSlice<PatternItem>)>> =
-                    elements
+                    let packed_elements: Vec<
+                        PluralElements<(FourBitMetadata, &ZeroSlice<PatternItem>)>,
+                    > = elements
                         .iter()
                         .map(|plural_elements| {
                             plural_elements.as_ref().map(|pattern| {
@@ -773,20 +775,24 @@ mod _serde {
         where
             S: serde::Serializer,
         {
-            serialize_helper::<_, PluralElements<reference::Pattern>, _>(self, serializer, |elements| {
-                elements
-                    .iter()
-                    .map(|plural_elements| {
-                        plural_elements.decode().map(|(metadata, items)| {
-                            let pattern_borrowed = PatternBorrowed {
-                                metadata: PatternMetadata::from_u8(metadata.get()),
-                                items,
-                            };
-                            reference::Pattern::from(&pattern_borrowed.as_pattern())
+            serialize_helper::<_, PluralElements<reference::Pattern>, _>(
+                self,
+                serializer,
+                |elements| {
+                    elements
+                        .iter()
+                        .map(|plural_elements| {
+                            plural_elements.decode().map(|(metadata, items)| {
+                                let pattern_borrowed = PatternBorrowed {
+                                    metadata: PatternMetadata::from_u8(metadata.get()),
+                                    items,
+                                };
+                                reference::Pattern::from(&pattern_borrowed.as_pattern())
+                            })
                         })
-                    })
-                    .collect()
-            })
+                        .collect()
+                },
+            )
         }
     }
 }

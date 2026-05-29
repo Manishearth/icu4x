@@ -578,20 +578,23 @@ impl<'data> GenericPackedPatterns<'data, PluralElementsPackedULE<ZeroSlice<Patte
 mod _serde {
     use super::*;
     use crate::provider::pattern::reference;
-    use zerovec::VarZeroSlice;
+    use serde::Deserialize;
+    #[cfg(feature = "datagen")]
+    use serde::Serialize;
+    use zerovec::{ule::VarULE, VarZeroSlice, VarZeroVec};
 
     #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
     #[cfg_attr(feature = "datagen", derive(serde::Serialize))]
-    struct PackedPatternsMachine<'data> {
+    struct PackedPatternsMachine<'data, U: VarULE + ?Sized> {
         pub header: u32,
         #[serde(borrow)]
-        pub elements: &'data VarZeroSlice<PluralElementsPackedULE<ZeroSlice<PatternItem>>>,
+        #[cfg_attr(feature = "serde", serde(bound(deserialize = "")))]
+        pub elements: &'data VarZeroSlice<U>,
     }
 
     #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
     #[cfg_attr(feature = "datagen", derive(serde::Serialize))]
-    #[derive(Default)]
-    struct PackedPatternsHuman {
+    struct GenericPackedPatternsHuman<T> {
         #[cfg_attr(
             feature = "serde",
             serde(default, skip_serializing_if = "core::ops::Not::not")
@@ -612,7 +615,119 @@ mod _serde {
             serde(default, skip_serializing_if = "Option::is_none")
         )]
         pub(super) variant_pattern_indices: Option<[u32; 6]>,
-        pub(super) elements: Vec<PluralElements<reference::Pattern>>,
+        pub(super) elements: Vec<T>,
+    }
+
+    impl<T> Default for GenericPackedPatternsHuman<T> {
+        fn default() -> Self {
+            Self {
+                has_explicit_medium: false,
+                has_explicit_short: false,
+                has_one_pattern_per_variant: false,
+                variant_pattern_indices: None,
+                elements: Vec::new(),
+            }
+        }
+    }
+
+    fn deserialize_helper<'de, 'data, U, T, D>(
+        deserializer: D,
+        pack_fn: impl FnOnce(Vec<T>) -> VarZeroVec<'static, U>,
+    ) -> Result<GenericPackedPatterns<'data, U>, D::Error>
+    where
+        U: VarULE + ?Sized,
+        T: Deserialize<'de>,
+        D: serde::Deserializer<'de>,
+        'de: 'data,
+    {
+        use serde::de::Error as _;
+        if deserializer.is_human_readable() {
+            let human = <GenericPackedPatternsHuman<T>>::deserialize(deserializer)?;
+            let variant_indices = match (
+                human.has_one_pattern_per_variant,
+                human.variant_pattern_indices,
+            ) {
+                (true, None) => VariantIndices::OnePatternPerVariant,
+                (false, Some(chunks)) => VariantIndices::IndicesPerVariant(
+                    VariantPatternIndex::try_from_chunks_u32(chunks)
+                        .ok_or_else(|| D::Error::custom("variant pattern index out of range"))?,
+                ),
+                _ => {
+                    return Err(D::Error::custom(
+                        "must have either one pattern per variant or indices",
+                    ))
+                }
+            };
+
+            let mut header = 0u32;
+            if human.has_explicit_medium {
+                header |= constants::M_DIFFERS;
+            }
+            if human.has_explicit_short {
+                header |= constants::S_DIFFERS;
+            }
+            match variant_indices {
+                VariantIndices::OnePatternPerVariant => {
+                    header |= constants::Q_BIT;
+                }
+                VariantIndices::IndicesPerVariant(chunks) => {
+                    let mut shift = 3;
+                    for chunk_u32 in VariantPatternIndex::to_chunks_u32(chunks).iter() {
+                        debug_assert!(*chunk_u32 <= constants::CHUNK_MASK);
+                        header |= *chunk_u32 << shift;
+                        shift += 3;
+                    }
+                }
+            }
+
+            let elements = pack_fn(human.elements);
+            Ok(GenericPackedPatterns { header, elements })
+        } else {
+            let machine = <PackedPatternsMachine<'data, U>>::deserialize(deserializer)?;
+            Ok(GenericPackedPatterns {
+                header: machine.header,
+                elements: machine.elements.as_varzerovec(),
+            })
+        }
+    }
+
+    #[cfg(feature = "datagen")]
+    fn serialize_helper<'data, U, T, S>(
+        packed: &GenericPackedPatterns<'data, U>,
+        serializer: S,
+        unpack_fn: impl FnOnce(&VarZeroSlice<U>) -> Vec<T>,
+    ) -> Result<S::Ok, S::Error>
+    where
+        U: VarULE + Serialize + ?Sized,
+        T: Serialize,
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            let unpacked = GenericUnpackedPatterns::from_packed(packed, unpack_fn);
+            let mut human = GenericPackedPatternsHuman {
+                has_explicit_medium: unpacked.has_explicit_medium,
+                has_explicit_short: unpacked.has_explicit_short,
+                ..Default::default()
+            };
+            match unpacked.variant_indices {
+                VariantIndices::OnePatternPerVariant => {
+                    human.has_one_pattern_per_variant = true;
+                }
+                VariantIndices::IndicesPerVariant(chunks) => {
+                    let chunks = VariantPatternIndex::to_chunks_u32(chunks);
+                    human.variant_pattern_indices = Some(chunks);
+                }
+            }
+
+            human.elements = unpacked.elements;
+            human.serialize(serializer)
+        } else {
+            let machine = PackedPatternsMachine {
+                header: packed.header,
+                elements: &packed.elements,
+            };
+            machine.serialize(serializer)
+        }
     }
 
     impl<'de, 'data> serde::Deserialize<'de>
@@ -624,115 +739,54 @@ mod _serde {
         where
             D: serde::Deserializer<'de>,
         {
-            use serde::de::Error as _;
-            if deserializer.is_human_readable() {
-                let human = <PackedPatternsHuman>::deserialize(deserializer)?;
-                let variant_indices = match (
-                    human.has_one_pattern_per_variant,
-                    human.variant_pattern_indices,
-                ) {
-                    (true, None) => VariantIndices::OnePatternPerVariant,
-                    (false, Some(chunks)) => VariantIndices::IndicesPerVariant(
-                        VariantPatternIndex::try_from_chunks_u32(chunks).ok_or_else(|| {
-                            D::Error::custom("variant pattern index out of range")
-                        })?,
-                    ),
-                    _ => {
-                        return Err(D::Error::custom(
-                            "must have either one pattern per variant or indices",
-                        ))
-                    }
-                };
-                let elements = human
-                    .elements
+            deserialize_helper::<_, PluralElements<reference::Pattern>, _>(deserializer, |elements| {
+                let elements: Vec<PluralElements<Pattern<'static>>> = elements
                     .into_iter()
                     .map(|plural_elements| {
                         plural_elements.map(|pattern| pattern.to_runtime_pattern())
                     })
                     .collect();
-                let unpacked = GenericUnpackedPatterns {
-                    has_explicit_medium: human.has_explicit_medium,
-                    has_explicit_short: human.has_explicit_short,
-                    variant_indices,
-                    elements,
-                };
-                Ok(unpacked.build_generic(|elements| {
-                    let elements: Vec<PluralElements<(FourBitMetadata, &ZeroSlice<PatternItem>)>> =
-                        elements
-                            .iter()
-                            .map(|plural_elements| {
-                                plural_elements.as_ref().map(|pattern| {
-                                    (
-                                        pattern.metadata.to_four_bit_metadata(),
-                                        pattern.items.as_slice(),
-                                    )
-                                })
+
+                let packed_elements: Vec<PluralElements<(FourBitMetadata, &ZeroSlice<PatternItem>)>> =
+                    elements
+                        .iter()
+                        .map(|plural_elements| {
+                            plural_elements.as_ref().map(|pattern| {
+                                (
+                                    pattern.metadata.to_four_bit_metadata(),
+                                    pattern.items.as_slice(),
+                                )
                             })
-                            .collect();
-                    elements.as_slice().into()
-                }))
-            } else {
-                let machine = <PackedPatternsMachine>::deserialize(deserializer)?;
-                Ok(Self {
-                    header: machine.header,
-                    elements: machine.elements.as_varzerovec(),
-                })
-            }
+                        })
+                        .collect();
+                    packed_elements.as_slice().into()
+                },
+            )
         }
     }
 
     #[cfg(feature = "datagen")]
-    impl serde::Serialize
-        for GenericPackedPatterns<'_, PluralElementsPackedULE<ZeroSlice<PatternItem>>>
+    impl<'data> Serialize
+        for GenericPackedPatterns<'data, PluralElementsPackedULE<ZeroSlice<PatternItem>>>
     {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
         {
-            if serializer.is_human_readable() {
-                let unpacked = GenericUnpackedPatterns::from_packed(self, |elements| {
-                    elements
-                        .iter()
-                        .map(|plural_elements| {
-                            plural_elements.decode().map(|(metadata, items)| {
-                                let pattern_borrowed = PatternBorrowed {
-                                    metadata: PatternMetadata::from_u8(metadata.get()),
-                                    items,
-                                };
-                                pattern_borrowed.as_pattern()
-                            })
-                        })
-                        .collect()
-                });
-                let mut human = PackedPatternsHuman {
-                    has_explicit_medium: unpacked.has_explicit_medium,
-                    has_explicit_short: unpacked.has_explicit_short,
-                    ..Default::default()
-                };
-                match unpacked.variant_indices {
-                    VariantIndices::OnePatternPerVariant => {
-                        human.has_one_pattern_per_variant = true;
-                    }
-                    VariantIndices::IndicesPerVariant(chunks) => {
-                        let chunks = VariantPatternIndex::to_chunks_u32(chunks);
-                        human.variant_pattern_indices = Some(chunks);
-                    }
-                }
-                human.elements = unpacked
-                    .elements
-                    .into_iter()
+            serialize_helper::<_, PluralElements<reference::Pattern>, _>(self, serializer, |elements| {
+                elements
+                    .iter()
                     .map(|plural_elements| {
-                        plural_elements.map(|pattern| reference::Pattern::from(&pattern))
+                        plural_elements.decode().map(|(metadata, items)| {
+                            let pattern_borrowed = PatternBorrowed {
+                                metadata: PatternMetadata::from_u8(metadata.get()),
+                                items,
+                            };
+                            reference::Pattern::from(&pattern_borrowed.as_pattern())
+                        })
                     })
-                    .collect();
-                human.serialize(serializer)
-            } else {
-                let machine = PackedPatternsMachine {
-                    header: self.header,
-                    elements: &self.elements,
-                };
-                machine.serialize(serializer)
-            }
+                    .collect()
+            })
         }
     }
 }

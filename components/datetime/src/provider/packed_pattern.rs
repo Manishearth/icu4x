@@ -528,15 +528,27 @@ impl<'data> GenericPackedPatterns<'data, PluralElementsPackedULE<ZeroSlice<Patte
         }
     }
 
+    #[cfg(feature = "datagen")]
     fn get_as_plural_elements(
         &self,
         length: Length,
         variant: PackedSkeletonVariant,
     ) -> PluralElements<Pattern<'_>> {
-        PluralElements::new(self.get(length, variant).as_pattern())
+        let Some(plural_elements) = self.get_element(length, variant) else {
+            debug_assert!(false, "unreachable");
+            return PluralElements::new(Pattern::default());
+        };
+        plural_elements.decode().map(|(metadata, items)| {
+            PatternBorrowed {
+                metadata: PatternMetadata::from_u8(metadata.get()),
+                items,
+            }
+            .as_pattern()
+        })
     }
 
     /// Converts this packed data to a builder that can be mutated.
+    #[cfg(feature = "datagen")]
     pub fn to_builder(&self) -> PackedPatternsBuilder<'_> {
         use Length::*;
         use PackedSkeletonVariant::*;
@@ -600,7 +612,7 @@ mod _serde {
             serde(default, skip_serializing_if = "Option::is_none")
         )]
         pub(super) variant_pattern_indices: Option<[u32; 6]>,
-        pub(super) elements: Vec<reference::Pattern>,
+        pub(super) elements: Vec<PluralElements<reference::Pattern>>,
     }
 
     impl<'de, 'data> serde::Deserialize<'de>
@@ -633,8 +645,10 @@ mod _serde {
                 };
                 let elements = human
                     .elements
-                    .iter()
-                    .map(|pattern| PluralElements::new(pattern.to_runtime_pattern()))
+                    .into_iter()
+                    .map(|plural_elements| {
+                        plural_elements.map(|pattern| pattern.to_runtime_pattern())
+                    })
                     .collect();
                 let unpacked = GenericUnpackedPatterns {
                     has_explicit_medium: human.has_explicit_medium,
@@ -661,7 +675,6 @@ mod _serde {
         where
             S: serde::Serializer,
         {
-            use serde::ser::Error as _;
             if serializer.is_human_readable() {
                 let unpacked = GenericUnpackedPatterns::from_packed(self);
                 let mut human = PackedPatternsHuman {
@@ -678,13 +691,13 @@ mod _serde {
                         human.variant_pattern_indices = Some(chunks);
                     }
                 }
-                human.elements = Vec::with_capacity(unpacked.elements.len());
-                for pattern_elements in unpacked.elements.into_iter() {
-                    let pattern = pattern_elements
-                        .try_into_other()
-                        .ok_or_else(|| S::Error::custom("cannot yet serialize plural patterns"))?;
-                    human.elements.push(reference::Pattern::from(&pattern));
-                }
+                human.elements = unpacked
+                    .elements
+                    .into_iter()
+                    .map(|plural_elements| {
+                        plural_elements.map(|pattern| reference::Pattern::from(&pattern))
+                    })
+                    .collect();
                 human.serialize(serializer)
             } else {
                 let machine = PackedPatternsMachine {
@@ -853,7 +866,8 @@ mod tests {
         let lms1 = LengthPluralElements {
             long: PluralElements::new(patterns[3].clone()),
             medium: PluralElements::new(patterns[4].clone()),
-            short: PluralElements::new(patterns[5].clone()),
+            short: PluralElements::new(patterns[5].clone())
+                .with_one_value(Some(patterns[6].clone())),
         };
 
         let builder = PackedPatternsBuilder {
@@ -867,17 +881,18 @@ mod tests {
         assert_eq!(
             bincode_bytes.as_slice(),
             &[
-                26, 11, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0, 5, 0, 16, 0, 26, 0, 30, 0, 46, 0, 0, 128,
+                26, 11, 0, 0, 85, 0, 0, 0, 0, 0, 0, 0, 5, 0, 16, 0, 26, 0, 30, 0, 46, 0, 0, 128,
                 32, 1, 0, 0, 47, 128, 64, 1, 0, 0, 47, 128, 16, 1, 2, 128, 114, 2, 0, 0, 58, 128,
                 128, 2, 0, 128, 80, 1, 0, 128, 80, 1, 0, 0, 32, 128, 32, 3, 0, 0, 32, 128, 64, 1,
-                0, 128, 64, 2, 0, 0, 46, 128, 32, 2, 0, 0, 46, 128, 16, 2
+                128, 15, 128, 64, 2, 0, 0, 46, 128, 32, 2, 0, 0, 46, 128, 16, 2, 1, 0, 17, 128,
+                113, 1, 0, 0, 32, 128, 96, 1
             ][..]
         );
         let bincode_recovered = bincode::deserialize::<PackedPatterns>(&bincode_bytes).unwrap();
         assert_eq!(builder, bincode_recovered.to_builder());
 
         let json_str = serde_json::to_string(&packed).unwrap();
-        assert_eq!(json_str, "{\"has_explicit_short\":true,\"variant_pattern_indices\":[3,4,5,0,0,0],\"elements\":[\"M/d/y\",\"HH:mm\",\"E\",\"E MMM d\",\"dd.MM.yy\"]}");
+        assert_eq!(json_str, "{\"has_explicit_short\":true,\"variant_pattern_indices\":[3,4,5,0,0,0],\"elements\":[\"M/d/y\",\"HH:mm\",\"E\",\"E MMM d\",{\"one\":\"h a\",\"other\":\"dd.MM.yy\"}]}");
         let json_recovered = serde_json::from_str::<PackedPatterns>(&json_str).unwrap();
         assert_eq!(builder, json_recovered.to_builder());
     }

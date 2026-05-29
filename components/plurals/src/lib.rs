@@ -978,6 +978,23 @@ impl<T> PluralElements<T> {
         }
     }
 
+    #[cfg(feature = "datagen")]
+    pub(crate) fn as_single_other(&self) -> Option<&T> {
+        match &self.0 {
+            PluralElementsInner {
+                zero: None,
+                one: None,
+                two: None,
+                few: None,
+                many: None,
+                other,
+                explicit_zero: None,
+                explicit_one: None,
+            } => Some(other),
+            _ => None,
+        }
+    }
+
     /// The value used when the [`PluralOperands`] are exactly 0.
     pub fn explicit_zero(&self) -> Option<&T> {
         self.0.explicit_zero.as_ref()
@@ -1133,5 +1150,50 @@ impl<T: PartialEq> PluralElements<T> {
             explicit_one,
             ..self.0
         })
+    }
+}
+
+#[cfg(feature = "serde")]
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum PluralElementsHumanHelper<T> {
+    Flat(T),
+    Map(PluralElementsInner<T>),
+}
+
+#[cfg(feature = "serde")]
+impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for PluralElements<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            let helper = PluralElementsHumanHelper::<T>::deserialize(deserializer)?;
+            match helper {
+                PluralElementsHumanHelper::Flat(other) => Ok(PluralElements::new(other)),
+                PluralElementsHumanHelper::Map(inner) => Ok(PluralElements(inner)),
+            }
+        } else {
+            let inner = PluralElementsInner::deserialize(deserializer)?;
+            Ok(PluralElements(inner))
+        }
+    }
+}
+
+#[cfg(feature = "datagen")]
+impl<T: serde::Serialize> serde::Serialize for PluralElements<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            if let Some(single) = self.as_single_other() {
+                single.serialize(serializer)
+            } else {
+                self.0.serialize(serializer)
+            }
+        } else {
+            self.0.serialize(serializer)
+        }
     }
 }

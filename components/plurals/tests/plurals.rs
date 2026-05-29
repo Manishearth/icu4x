@@ -41,3 +41,43 @@ fn test_plural_category_all() {
     assert_eq!(categories[4], PluralCategory::Two);
     assert_eq!(categories[5], PluralCategory::Zero);
 }
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_plural_elements_serde() {
+    use icu_plurals::PluralElements;
+
+    // 1. Single "other" value
+    let single = PluralElements::new("hello".to_string());
+
+    #[cfg(feature = "datagen")]
+    {
+        let single_json = serde_json::to_string(&single).unwrap();
+        // In human-readable format, it should serialize as a flat string.
+        assert_eq!(single_json, "\"hello\"");
+
+        // Deserialize back
+        let single_deser: PluralElements<String> = serde_json::from_str(&single_json).unwrap();
+        assert_eq!(single, single_deser);
+    }
+
+    // Deserialize from map format (it should also work)
+    let map_json = "{\"other\":\"hello\"}";
+    let map_deser: PluralElements<String> = serde_json::from_str(map_json).unwrap();
+    assert_eq!(single, map_deser);
+
+    // 2. Multiple values
+    let multi =
+        PluralElements::new("other_val".to_string()).with_one_value(Some("one_val".to_string()));
+
+    #[cfg(feature = "datagen")]
+    {
+        let multi_json = serde_json::to_string(&multi).unwrap();
+        // Should serialize as map
+        assert_eq!(multi_json, "{\"one\":\"one_val\",\"other\":\"other_val\"}");
+
+        // Deserialize back
+        let multi_deser: PluralElements<String> = serde_json::from_str(&multi_json).unwrap();
+        assert_eq!(multi, multi_deser);
+    }
+}

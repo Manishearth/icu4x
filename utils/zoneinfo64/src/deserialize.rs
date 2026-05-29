@@ -238,6 +238,8 @@ fn rules<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<(&'de str, Tz
                 {
                     return Err(A::Error::custom("Wrong length or align"));
                 }
+                // SAFETY: The pointer has been verified to be correctly aligned to [i32; 11] and the length matches size_of::<[i32; 11]>().
+                // Since any arbitrary byte pattern represents a valid [i32; 11] (i32 is plain-old-data), the cast is safe.
                 let value = unsafe { &*(value.as_ptr() as *const [i32; 11]) };
 
                 vec.push((

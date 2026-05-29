@@ -656,7 +656,21 @@ mod _serde {
                     variant_indices,
                     elements,
                 };
-                Ok(unpacked.build())
+                Ok(unpacked.build_generic(|elements| {
+                    let elements: Vec<PluralElements<(FourBitMetadata, &ZeroSlice<PatternItem>)>> =
+                        elements
+                            .iter()
+                            .map(|plural_elements| {
+                                plural_elements.as_ref().map(|pattern| {
+                                    (
+                                        pattern.metadata.to_four_bit_metadata(),
+                                        pattern.items.as_slice(),
+                                    )
+                                })
+                            })
+                            .collect();
+                    elements.as_slice().into()
+                }))
             } else {
                 let machine = <PackedPatternsMachine>::deserialize(deserializer)?;
                 Ok(Self {

@@ -15,6 +15,8 @@ use icu_plurals::{
     PluralElements,
 };
 use icu_provider::prelude::*;
+#[cfg(feature = "datagen")]
+use zerovec::VarZeroSlice;
 use zerovec::{VarZeroVec, ZeroSlice};
 
 /// A field of [`PackedPatternsBuilder`].
@@ -277,8 +279,18 @@ impl<'a> GenericUnpackedPatterns<PluralElements<Pattern<'a>>> {
         })
     }
 
+}
+
+impl<T> GenericUnpackedPatterns<T> {
+    /// Reconstructs `GenericUnpackedPatterns` from a `GenericPackedPatterns`.
+    ///
+    /// `unpack_fn` is a closure used to unpack the elements from their packed representation
+    /// (`&VarZeroSlice<U>`) into their human-readable representation (`Vec<T>`).
     #[cfg(feature = "datagen")]
-    pub(super) fn from_packed(packed: &'a PackedPatterns<'_>) -> Self {
+    pub(super) fn from_packed<'a, 'data, U: zerovec::ule::VarULE + ?Sized>(
+        packed: &'a GenericPackedPatterns<'data, U>,
+        unpack_fn: impl FnOnce(&'a VarZeroSlice<U>) -> Vec<T>,
+    ) -> Self {
         let variant_indices = if (packed.header & constants::Q_BIT) != 0 {
             VariantIndices::OnePatternPerVariant
         } else {
@@ -291,19 +303,7 @@ impl<'a> GenericUnpackedPatterns<PluralElements<Pattern<'a>>> {
                 VariantPatternIndex::from_header_with_shift(packed.header, 18),
             ])
         };
-        let elements = packed
-            .elements
-            .iter()
-            .map(|plural_elements| {
-                plural_elements.decode().map(|(metadata, items)| {
-                    PatternBorrowed {
-                        metadata: PatternMetadata::from_u8(metadata.get()),
-                        items,
-                    }
-                    .as_pattern()
-                })
-            })
-            .collect();
+        let elements = unpack_fn(&packed.elements);
         Self {
             has_explicit_medium: (packed.header & constants::M_DIFFERS) != 0,
             has_explicit_short: (packed.header & constants::S_DIFFERS) != 0,
@@ -676,7 +676,20 @@ mod _serde {
             S: serde::Serializer,
         {
             if serializer.is_human_readable() {
-                let unpacked = GenericUnpackedPatterns::from_packed(self);
+                let unpacked = GenericUnpackedPatterns::from_packed(self, |elements| {
+                    elements
+                        .iter()
+                        .map(|plural_elements| {
+                            plural_elements.decode().map(|(metadata, items)| {
+                                let pattern_borrowed = PatternBorrowed {
+                                    metadata: PatternMetadata::from_u8(metadata.get()),
+                                    items,
+                                };
+                                pattern_borrowed.as_pattern()
+                            })
+                        })
+                        .collect()
+                });
                 let mut human = PackedPatternsHuman {
                     has_explicit_medium: unpacked.has_explicit_medium,
                     has_explicit_short: unpacked.has_explicit_short,

@@ -117,7 +117,10 @@ fn resolve_env_for_category(cat: LocaleCategory) -> Option<String> {
 /// Note: We only check LC_ALL because if libc is uninitialized, all categories return "C".
 /// If initialized, LC_ALL contains the composite snapshot of all category values.
 fn parse_setlocale_snapshot() -> Option<HashMap<LocaleCategory, String>> {
-    // SAFETY: read-only query of current thread's locale snapshot
+    // SAFETY: Read-only query of current thread's locale snapshot.
+    // Note: setlocale is not thread-safe in POSIX if another thread simultaneously modifies the locale.
+    // In addition, the returned static pointer is valid only until the next setlocale call,
+    // but we convert it to a safe Rust string copy immediately below.
     let ptr = unsafe { setlocale(LC_ALL, ptr::null()) };
     if ptr.is_null() {
         return None;

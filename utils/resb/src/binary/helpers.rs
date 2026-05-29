@@ -97,10 +97,18 @@ pub fn option_i32_tuple<'de, D: Deserializer<'de>>(
 
 /// Casts a slice of byte to a slice of T
 ///
+/// # Errors
+///
+/// Errors if `T` is a Zero-Sized Type (ZST), or if the length or alignment of the byte slice is incorrect.
+///
 /// # Safety
+///
 /// Alignment and length are checked, however the caller has to guarantee that the byte representation is valid for type T.
 pub unsafe fn cast_bytes_to_slice<T, E: Error>(bytes: &[u8]) -> Result<&[T], E> {
-    if bytes.as_ptr().align_offset(align_of::<T>()) != 0 || bytes.len() % size_of::<T>() != 0 {
+    if size_of::<T>() == 0
+        || bytes.as_ptr().align_offset(align_of::<T>()) != 0
+        || bytes.len() % size_of::<T>() != 0
+    {
         return Err(E::custom("Wrong length or align"));
     }
 
@@ -146,5 +154,12 @@ mod tests {
         assert_ne!(misaligned.as_ptr().align_offset(align_of::<u32>()), 0);
         let result: Result<&[u32], E> = unsafe { cast_bytes_to_slice(misaligned) };
         assert!(result.is_err(), "wrong alignment alone must be rejected");
+    }
+
+    #[test]
+    fn cast_zst() {
+        let bytes: &[u8] = &[];
+        let result: Result<&[()], E> = unsafe { cast_bytes_to_slice(bytes) };
+        assert!(result.is_err(), "ZSTs must be rejected");
     }
 }

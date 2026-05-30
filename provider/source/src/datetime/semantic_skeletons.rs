@@ -179,41 +179,33 @@ impl SourceDataProvider {
             &cldr_serde::ca::Dates,
         ) -> components::Bag,
     ) -> Result<PackedPatterns<'static>, DataError> {
-        let data = self.get_dates_resource(locale, calendar)?;
+        let mut cached_skeletons = None;
 
-        // Note: We default to atTime here (See https://github.com/unicode-org/conformance/issues/469)
-        let length_combinations_v1 = GenericLengthPatterns::from(&data.datetime_formats_at_time);
-        let skeleton_patterns = data.datetime_formats.available_formats.parse_skeletons();
-
-        let [long, medium, short] = [Length::Long, Length::Medium, Length::Short]
-            .map(|length| {
-                let components = to_components_bag(length, attributes, data);
+        let (mut builder, data) = super::resolve_packed_patterns_builder(
+            self,
+            locale,
+            calendar,
+            attributes,
+            &to_components_bag,
+            |_length, components, data| {
+                let skeletons = cached_skeletons.get_or_insert_with(|| {
+                    data.datetime_formats.available_formats.parse_skeletons()
+                });
+                let length_combinations_v1 =
+                    GenericLengthPatterns::from(&data.datetime_formats_at_time);
                 let preferred_hour_cycle = preferred_hour_cycle(data, locale);
                 select_pattern(
-                    components,
-                    &skeleton_patterns,
+                    *components,
+                    skeletons,
                     preferred_hour_cycle,
                     &length_combinations_v1,
                 )
-            });
-
-        let mut builder = GenericPackedPatternsBuilder {
-            standard: GenericLengthElements {
-                long: long.clone(),
-                medium: medium.clone(),
-                short: short.clone(),
             },
-            variant0: Some(GenericLengthElements {
-                long: long.clone(),
-                medium: medium.clone(),
-                short: short.clone(),
-            }),
-            variant1: Some(GenericLengthElements {
-                long: long.clone(),
-                medium: medium.clone(),
-                short: short.clone(),
-            }),
-        };
+        )?;
+
+        // Note: We default to atTime here (See https://github.com/unicode-org/conformance/issues/469)
+        let length_combinations_v1 = GenericLengthPatterns::from(&data.datetime_formats_at_time);
+        let skeleton_patterns = cached_skeletons.as_ref().unwrap();
 
         for length in [Length::Long, Length::Medium, Length::Short] {
             let components = to_components_bag(length, attributes, data);
@@ -234,13 +226,13 @@ impl SourceDataProvider {
 
                     let v0 = select_pattern(
                         components_with_full_year,
-                        &skeleton_patterns,
+                        skeleton_patterns,
                         preferred_hour_cycle,
                         &length_combinations_v1,
                     );
                     let v1 = select_pattern(
                         components_with_era,
-                        &skeleton_patterns,
+                        skeleton_patterns,
                         preferred_hour_cycle,
                         &length_combinations_v1,
                     );
@@ -257,13 +249,13 @@ impl SourceDataProvider {
 
                     let v0 = select_pattern(
                         components_with_minute,
-                        &skeleton_patterns,
+                        skeleton_patterns,
                         preferred_hour_cycle,
                         &length_combinations_v1,
                     );
                     let v1 = select_pattern(
                         components_with_second,
-                        &skeleton_patterns,
+                        skeleton_patterns,
                         preferred_hour_cycle,
                         &length_combinations_v1,
                     );

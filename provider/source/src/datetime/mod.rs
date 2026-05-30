@@ -5,6 +5,11 @@
 use crate::cldr_serde;
 use crate::SourceDataProvider;
 use icu::calendar::AnyCalendarKind;
+use icu::datetime::options::Length;
+use icu::datetime::provider::fields::components;
+use icu::datetime::provider::packed_pattern::{
+    GenericLengthElements, GenericPackedPatternsBuilder,
+};
 use icu::datetime::provider::skeleton::reference::Skeleton;
 use icu::datetime::provider::skeleton::SkeletonError;
 use icu_provider::prelude::*;
@@ -276,6 +281,52 @@ where
         }
     }
     result
+}
+
+pub(crate) fn resolve_packed_patterns_builder<'data, T, F>(
+    provider: &'data SourceDataProvider,
+    locale: &DataLocale,
+    calendar: Option<DatagenCalendar>,
+    attributes: &DataMarkerAttributes,
+    to_components_bag: impl Fn(Length, &DataMarkerAttributes, &cldr_serde::ca::Dates) -> components::Bag,
+    mut match_fn: F,
+) -> Result<
+    (
+        GenericPackedPatternsBuilder<T>,
+        &'data cldr_serde::ca::Dates,
+    ),
+    DataError,
+>
+where
+    T: Clone + PartialEq,
+    F: FnMut(Length, &components::Bag, &cldr_serde::ca::Dates) -> T,
+{
+    let data = provider.get_dates_resource(locale, calendar)?;
+
+    let [long, medium, short] = [Length::Long, Length::Medium, Length::Short].map(|length| {
+        let components = to_components_bag(length, attributes, data);
+        match_fn(length, &components, data)
+    });
+
+    let builder = GenericPackedPatternsBuilder {
+        standard: GenericLengthElements {
+            long: long.clone(),
+            medium: medium.clone(),
+            short: short.clone(),
+        },
+        variant0: Some(GenericLengthElements {
+            long: long.clone(),
+            medium: medium.clone(),
+            short: short.clone(),
+        }),
+        variant1: Some(GenericLengthElements {
+            long: long.clone(),
+            medium: medium.clone(),
+            short: short.clone(),
+        }),
+    };
+
+    Ok((builder, data))
 }
 
 #[cfg(test)]

@@ -24,41 +24,34 @@ mod tests;
 
 type VariantPatternsElement<'a> = PatternsWithDistance<PluralElements<runtime::Pattern<'a>>>;
 
-/// A set of patterns that may be used in the same formatter depending on input variations.
-#[derive(Debug)]
-struct VariantPatterns<'a> {
-    standard: VariantPatternsElement<'a>,
-    variant0: Option<VariantPatternsElement<'a>>,
-    variant1: Option<VariantPatternsElement<'a>>,
-}
-
-impl<'a> VariantPatterns<'a> {
-    pub fn iter_in_quality_order_mut(
-        &mut self,
-    ) -> impl Iterator<Item = &mut VariantPatternsElement<'a>> + '_ {
-        let mut list = [
-            Some(&mut self.standard),
-            self.variant0.as_mut(),
-            self.variant1.as_mut(),
-        ];
-        list.sort_by_key(|variant| variant.as_ref().map(|v| v.distance));
-        list.into_iter().flatten()
-    }
-}
-
 /// Some patterns associated with a [`SkeletonQuality`].
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 struct PatternsWithDistance<T> {
     inner: T,
     distance: SkeletonQuality,
 }
 
+#[cfg(test)]
 impl<T> PatternsWithDistance<T> {
-    pub fn inner(&self) -> &T {
-        &self.inner
-    }
     pub fn into_inner(self) -> T {
         self.inner
+    }
+}
+
+struct TrioMut<'a, T> {
+    standard: &'a mut T,
+    variant0: Option<&'a mut T>,
+    variant1: Option<&'a mut T>,
+}
+
+impl<'a, T> TrioMut<'a, T> {
+    pub fn iter_in_quality_order_mut<K: Ord>(
+        self,
+        mut key_fn: impl FnMut(&T) -> K,
+    ) -> impl Iterator<Item = &'a mut T> {
+        let mut list = [Some(self.standard), self.variant0, self.variant1];
+        list.sort_by_key(|variant| variant.as_ref().map(|v| key_fn(*v)));
+        list.into_iter().flatten()
     }
 }
 
@@ -192,179 +185,160 @@ impl SourceDataProvider {
         let length_combinations_v1 = GenericLengthPatterns::from(&data.datetime_formats_at_time);
         let skeleton_patterns = data.datetime_formats.available_formats.parse_skeletons();
 
-        fn enforce_consistent_field_lengths(
-            trio: &mut VariantPatterns,
-            mut log_fn: impl FnMut(ErrorField, ErrorField, SkeletonQuality),
-        ) {
-            let mut names =
-                FixedCalendarDateTimeNames::<()>::new_without_number_formatting(Default::default());
-            for variant in trio.iter_in_quality_order_mut() {
-                variant.inner.for_each_mut(|pattern| {
-                    enforce_consistent_field_length(&mut names, pattern, |prev, req| {
-                        log_fn(prev, req, variant.distance);
-                    });
-                })
-            }
-        }
-
         let [long, medium, short] = [Length::Long, Length::Medium, Length::Short]
             .map(|length| {
                 let components = to_components_bag(length, attributes, data);
                 let preferred_hour_cycle = preferred_hour_cycle(data, locale);
-                // TODO: Use a Skeleton here in order to retain 'E' vs 'c'
-                let pattern = select_pattern(
+                select_pattern(
                     components,
                     &skeleton_patterns,
                     preferred_hour_cycle,
                     &length_combinations_v1,
-                );
-
-                let mut variant_patterns = match components {
-                    components::Bag {
-                        era: None,
-                        year: Some(_),
-                        ..
-                    } => {
-                        // TODO(#4478): Use CLDR data when it becomes available
-                        // TODO: Set the length to _markerSkeletonLength? Or not, because
-                        // the era should normally be displayed as short?
-                        let mut components_with_full_year = components;
-                        components_with_full_year.year = Some(components::Year::Numeric);
-                        let mut components_with_era = components_with_full_year;
-                        components_with_era.era = Some(components::Text::Short);
-                        VariantPatterns {
-                            standard: pattern,
-                            variant0: Some(select_pattern(
-                                components_with_full_year,
-                                &skeleton_patterns,
-                                preferred_hour_cycle,
-                                &length_combinations_v1,
-                            )),
-                            variant1: Some(select_pattern(
-                                components_with_era,
-                                &skeleton_patterns,
-                                preferred_hour_cycle,
-                                &length_combinations_v1,
-                            )),
-                        }
-                    }
-                    components::Bag { hour: Some(_), .. } => {
-                        let mut components_with_minute = components;
-                        components_with_minute.minute = Some(components::Numeric::Numeric);
-                        let mut components_with_second = components;
-                        components_with_second.minute = Some(components::Numeric::Numeric);
-                        components_with_second.second = Some(components::Numeric::Numeric);
-                        VariantPatterns {
-                            standard: pattern,
-                            variant0: Some(select_pattern(
-                                components_with_minute,
-                                &skeleton_patterns,
-                                preferred_hour_cycle,
-                                &length_combinations_v1,
-                            )),
-                            variant1: Some(select_pattern(
-                                components_with_second,
-                                &skeleton_patterns,
-                                preferred_hour_cycle,
-                                &length_combinations_v1,
-                            )),
-                        }
-                    }
-                    _ => VariantPatterns {
-                        standard: pattern,
-                        variant0: None,
-                        variant1: None,
-                    },
-                };
-
-                // Because we infer the field lengths from the stock date format
-                // skeletons, we will inherit the numbering system override from
-                // the stock patterns. This is non-standard behavior! See:
-                // <https://unicode-org.atlassian.net/browse/CLDR-19423>
-                let lp = match length {
-                    Length::Long => &data.date_formats.long,
-                    Length::Medium => &data.date_formats.medium,
-                    Length::Short => &data.date_formats.short,
-                    _ => unreachable!(),
-                };
-                for variant in variant_patterns.iter_in_quality_order_mut() {
-                    variant.inner.for_each_mut(|p| {
-                        crate::datetime::names::apply_numeric_overrides(lp, p);
-                    });
-                }
-                variant_patterns
-            })
-            .map(|mut trio| {
-                enforce_consistent_field_lengths(&mut trio, |previous_field, field, distance| {
-                    if !distance.is_excellent_match() {
-                        return; // skip logging if the pattern was garbage already
-                    }
-                    use icu::datetime::provider::fields::Field;
-                    let previous_field = Field::from(previous_field);
-                    let field = Field::from(field);
-                    let attributes = attributes.as_str();
-                    let calendar = calendar.map(|c| c.cldr_name()).unwrap_or("generic");
-                    log::warn!(
-                        "{calendar}/{locale}/{attributes}: conflicting field: {previous_field} <=> {field}"
-                    )
-                });
-                trio
+                )
             });
 
-        let builder = PackedPatternsBuilder {
-            standard: LengthPluralElements {
-                long: long.standard.inner().as_ref().map(runtime::Pattern::as_ref),
-                medium: medium
-                    .standard
-                    .inner()
-                    .as_ref()
-                    .map(runtime::Pattern::as_ref),
-                short: short
-                    .standard
-                    .inner()
-                    .as_ref()
-                    .map(runtime::Pattern::as_ref),
+        let mut builder = GenericPackedPatternsBuilder {
+            standard: GenericLengthElements {
+                long: long.clone(),
+                medium: medium.clone(),
+                short: short.clone(),
             },
-            variant0: Some(LengthPluralElements {
-                long: long.variant0.map(|x| x.into_inner()).unwrap_or_else(|| {
-                    long.standard.inner().as_ref().map(runtime::Pattern::as_ref)
-                }),
-                medium: medium.variant0.map(|x| x.into_inner()).unwrap_or_else(|| {
-                    medium
-                        .standard
-                        .inner()
-                        .as_ref()
-                        .map(runtime::Pattern::as_ref)
-                }),
-                short: short.variant0.map(|x| x.into_inner()).unwrap_or_else(|| {
-                    short
-                        .standard
-                        .inner()
-                        .as_ref()
-                        .map(runtime::Pattern::as_ref)
-                }),
+            variant0: Some(GenericLengthElements {
+                long: long.clone(),
+                medium: medium.clone(),
+                short: short.clone(),
             }),
-            variant1: Some(LengthPluralElements {
-                long: long.variant1.map(|x| x.into_inner()).unwrap_or_else(|| {
-                    long.standard.inner().as_ref().map(runtime::Pattern::as_ref)
-                }),
-                medium: medium.variant1.map(|x| x.into_inner()).unwrap_or_else(|| {
-                    medium
-                        .standard
-                        .inner()
-                        .as_ref()
-                        .map(runtime::Pattern::as_ref)
-                }),
-                short: short.variant1.map(|x| x.into_inner()).unwrap_or_else(|| {
-                    short
-                        .standard
-                        .inner()
-                        .as_ref()
-                        .map(runtime::Pattern::as_ref)
-                }),
+            variant1: Some(GenericLengthElements {
+                long: long.clone(),
+                medium: medium.clone(),
+                short: short.clone(),
             }),
         };
-        Ok(builder.build())
+
+        for length in [Length::Long, Length::Medium, Length::Short] {
+            let components = to_components_bag(length, attributes, data);
+            let preferred_hour_cycle = preferred_hour_cycle(data, locale);
+            match components {
+                components::Bag {
+                    era: None,
+                    year: Some(_),
+                    ..
+                } => {
+                    // TODO(#4478): Use CLDR data when it becomes available
+                    // TODO: Set the length to _markerSkeletonLength? Or not, because
+                    // the era should normally be displayed as short?
+                    let mut components_with_full_year = components;
+                    components_with_full_year.year = Some(components::Year::Numeric);
+                    let mut components_with_era = components_with_full_year;
+                    components_with_era.era = Some(components::Text::Short);
+
+                    let v0 = select_pattern(
+                        components_with_full_year,
+                        &skeleton_patterns,
+                        preferred_hour_cycle,
+                        &length_combinations_v1,
+                    );
+                    let v1 = select_pattern(
+                        components_with_era,
+                        &skeleton_patterns,
+                        preferred_hour_cycle,
+                        &length_combinations_v1,
+                    );
+
+                    set_element(builder.variant0.as_mut().unwrap(), length, v0);
+                    set_element(builder.variant1.as_mut().unwrap(), length, v1);
+                }
+                components::Bag { hour: Some(_), .. } => {
+                    let mut components_with_minute = components;
+                    components_with_minute.minute = Some(components::Numeric::Numeric);
+                    let mut components_with_second = components;
+                    components_with_second.minute = Some(components::Numeric::Numeric);
+                    components_with_second.second = Some(components::Numeric::Numeric);
+
+                    let v0 = select_pattern(
+                        components_with_minute,
+                        &skeleton_patterns,
+                        preferred_hour_cycle,
+                        &length_combinations_v1,
+                    );
+                    let v1 = select_pattern(
+                        components_with_second,
+                        &skeleton_patterns,
+                        preferred_hour_cycle,
+                        &length_combinations_v1,
+                    );
+
+                    set_element(builder.variant0.as_mut().unwrap(), length, v0);
+                    set_element(builder.variant1.as_mut().unwrap(), length, v1);
+                }
+                _ => {}
+            }
+        }
+
+        for length in [Length::Long, Length::Medium, Length::Short] {
+            let lp = match length {
+                Length::Long => &data.date_formats.long,
+                Length::Medium => &data.date_formats.medium,
+                Length::Short => &data.date_formats.short,
+                _ => unreachable!(),
+            };
+            let trio = TrioMut {
+                standard: get_element_mut(&mut builder.standard, length),
+                variant0: builder
+                    .variant0
+                    .as_mut()
+                    .map(|v| get_element_mut(v, length)),
+                variant1: builder
+                    .variant1
+                    .as_mut()
+                    .map(|v| get_element_mut(v, length)),
+            };
+            // Because we infer the field lengths from the stock date format
+            // skeletons, we will inherit the numbering system override from
+            // the stock patterns. This is non-standard behavior! See:
+            // <https://unicode-org.atlassian.net/browse/CLDR-19423>
+            for variant in trio.iter_in_quality_order_mut(|v| v.distance) {
+                variant.inner.for_each_mut(|p| {
+                    crate::datetime::names::apply_numeric_overrides(lp, p);
+                });
+            }
+        }
+
+        for length in [Length::Long, Length::Medium, Length::Short] {
+            let trio = TrioMut {
+                standard: get_element_mut(&mut builder.standard, length),
+                variant0: builder
+                    .variant0
+                    .as_mut()
+                    .map(|v| get_element_mut(v, length)),
+                variant1: builder
+                    .variant1
+                    .as_mut()
+                    .map(|v| get_element_mut(v, length)),
+            };
+
+            enforce_consistent_field_lengths(trio, |previous_field, field, distance| {
+                if !distance.is_excellent_match() {
+                    return; // skip logging if the pattern was garbage already
+                }
+                use icu::datetime::provider::fields::Field;
+                let previous_field = Field::from(previous_field);
+                let field = Field::from(field);
+                let attributes = attributes.as_str();
+                let calendar = calendar.map(|c| c.cldr_name()).unwrap_or("generic");
+                log::warn!(
+                        "{calendar}/{locale}/{attributes}: conflicting field: {previous_field} <=> {field}"
+                    )
+            });
+        }
+
+        let final_builder = GenericPackedPatternsBuilder {
+            standard: map_length(builder.standard, |x| x.inner),
+            variant0: builder.variant0.map(|v| map_length(v, |x| x.inner)),
+            variant1: builder.variant1.map(|v| map_length(v, |x| x.inner)),
+        };
+
+        Ok(final_builder.build())
     }
 
     fn time_skeleton_supported_locales(
@@ -605,3 +579,47 @@ impl_datetime_skeleton_datagen!(DatetimePatternsDateHijriV1, DatagenCalendar::Hi
 impl_datetime_skeleton_datagen!(DatetimePatternsDateJapaneseV1, DatagenCalendar::Japanese);
 impl_datetime_skeleton_datagen!(DatetimePatternsDatePersianV1, DatagenCalendar::Persian);
 impl_datetime_skeleton_datagen!(DatetimePatternsDateRocV1, DatagenCalendar::Roc);
+
+fn set_element<T>(group: &mut GenericLengthElements<T>, length: Length, value: T) {
+    match length {
+        Length::Long => group.long = value,
+        Length::Medium => group.medium = value,
+        Length::Short => group.short = value,
+        _ => unreachable!(),
+    }
+}
+
+fn get_element_mut<T>(group: &mut GenericLengthElements<T>, length: Length) -> &mut T {
+    match length {
+        Length::Long => &mut group.long,
+        Length::Medium => &mut group.medium,
+        Length::Short => &mut group.short,
+        _ => unreachable!(),
+    }
+}
+
+fn map_length<T, U>(
+    group: GenericLengthElements<T>,
+    mut f: impl FnMut(T) -> U,
+) -> GenericLengthElements<U> {
+    GenericLengthElements {
+        long: f(group.long),
+        medium: f(group.medium),
+        short: f(group.short),
+    }
+}
+
+fn enforce_consistent_field_lengths<'a, 'b>(
+    trio: TrioMut<'a, VariantPatternsElement<'b>>,
+    mut log_fn: impl FnMut(ErrorField, ErrorField, SkeletonQuality),
+) {
+    let mut names =
+        FixedCalendarDateTimeNames::<()>::new_without_number_formatting(Default::default());
+    for variant in trio.iter_in_quality_order_mut(|v| v.distance) {
+        variant.inner.for_each_mut(|pattern| {
+            enforce_consistent_field_length(&mut names, pattern, |prev, req| {
+                log_fn(prev, req, variant.distance);
+            });
+        })
+    }
+}

@@ -5,6 +5,11 @@
 use crate::cldr_serde;
 use crate::SourceDataProvider;
 use icu::calendar::AnyCalendarKind;
+use icu::datetime::options::Length;
+use icu::datetime::provider::fields::components;
+use icu::datetime::provider::packed_pattern::{
+    GenericLengthElements, GenericPackedPatternsBuilder,
+};
 use icu::datetime::provider::skeleton::reference::Skeleton;
 use icu::datetime::provider::skeleton::SkeletonError;
 use icu_provider::prelude::*;
@@ -276,6 +281,117 @@ where
         }
     }
     result
+}
+
+pub(crate) fn resolve_packed_patterns_builder<'data, T, F>(
+    provider: &'data SourceDataProvider,
+    locale: &DataLocale,
+    calendar: Option<DatagenCalendar>,
+    attributes: &DataMarkerAttributes,
+    to_components_bag: impl Fn(Length, &DataMarkerAttributes, &cldr_serde::ca::Dates) -> components::Bag,
+    mut match_fn: F,
+) -> Result<
+    (
+        GenericPackedPatternsBuilder<T>,
+        &'data cldr_serde::ca::Dates,
+    ),
+    DataError,
+>
+where
+    T: Clone + PartialEq,
+    F: FnMut(Length, &components::Bag, &cldr_serde::ca::Dates) -> T,
+{
+    let data = provider.get_dates_resource(locale, calendar)?;
+
+    let mut long_std = None;
+    let mut medium_std = None;
+    let mut short_std = None;
+
+    let mut long_v0 = None;
+    let mut medium_v0 = None;
+    let mut short_v0 = None;
+
+    let mut long_v1 = None;
+    let mut medium_v1 = None;
+    let mut short_v1 = None;
+
+    for length in [Length::Long, Length::Medium, Length::Short] {
+        let components = to_components_bag(length, attributes, data);
+        let standard_val = match_fn(length, &components, data);
+
+        // Initialize variants as copies of standard
+        let mut v0 = standard_val.clone();
+        let mut v1 = standard_val.clone();
+
+        match components {
+            components::Bag {
+                era: None,
+                year: Some(_),
+                ..
+            } => {
+                let mut components_v0 = components;
+                components_v0.year = Some(components::Year::Numeric);
+                let mut components_v1 = components_v0;
+                // TODO(#4478): Use CLDR data when it becomes available
+                // TODO: Set the length to _markerSkeletonLength? Or not, because
+                // the era should normally be displayed as short?
+                components_v1.era = Some(components::Text::Short);
+
+                v0 = match_fn(length, &components_v0, data);
+                v1 = match_fn(length, &components_v1, data);
+            }
+            components::Bag { hour: Some(_), .. } => {
+                let mut components_v0 = components;
+                components_v0.minute = Some(components::Numeric::Numeric);
+                let mut components_v1 = components;
+                components_v1.minute = Some(components::Numeric::Numeric);
+                components_v1.second = Some(components::Numeric::Numeric);
+
+                v0 = match_fn(length, &components_v0, data);
+                v1 = match_fn(length, &components_v1, data);
+            }
+            _ => {}
+        }
+
+        match length {
+            Length::Long => {
+                long_std = Some(standard_val);
+                long_v0 = Some(v0);
+                long_v1 = Some(v1);
+            }
+            Length::Medium => {
+                medium_std = Some(standard_val);
+                medium_v0 = Some(v0);
+                medium_v1 = Some(v1);
+            }
+            Length::Short => {
+                short_std = Some(standard_val);
+                short_v0 = Some(v0);
+                short_v1 = Some(v1);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    let builder = GenericPackedPatternsBuilder {
+        standard: GenericLengthElements {
+            long: long_std.unwrap(),
+            medium: medium_std.unwrap(),
+            short: short_std.unwrap(),
+        },
+        variant0: Some(GenericLengthElements {
+            long: long_v0.unwrap(),
+            medium: medium_v0.unwrap(),
+            short: short_v0.unwrap(),
+        }),
+        variant1: Some(GenericLengthElements {
+            long: long_v1.unwrap(),
+            medium: medium_v1.unwrap(),
+            short: short_v1.unwrap(),
+        }),
+    };
+
+    Ok((builder, data))
 }
 
 #[cfg(test)]

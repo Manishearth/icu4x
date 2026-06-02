@@ -577,10 +577,69 @@ impl<'data> GenericPackedPatterns<'data, PluralElementsPackedULE<ZeroSlice<Patte
 mod _serde {
     use super::*;
     use crate::provider::pattern::reference;
-    use serde::Deserialize;
+    use serde::{Deserialize, Deserializer};
     #[cfg(feature = "datagen")]
-    use serde::Serialize;
+    use serde::{Serialize, Serializer};
     use zerovec::{ule::VarULE, VarZeroSlice, VarZeroVec};
+
+    pub(crate) trait PackedElementDeserialize<'de>: Sized {
+        fn deserialize_element<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>;
+    }
+
+    #[cfg(feature = "datagen")]
+    pub(crate) trait PackedElementSerialize {
+        fn serialize_element<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer;
+    }
+
+    #[derive(serde::Deserialize)]
+    #[cfg_attr(feature = "datagen", derive(serde::Serialize))]
+    #[serde(transparent)]
+    pub(crate) struct PackedElementWrap<T>(
+        #[cfg_attr(
+            feature = "serde",
+            serde(
+                deserialize_with = "PackedElementDeserialize::deserialize_element",
+                bound(deserialize = "T: PackedElementDeserialize<'de>")
+            )
+        )]
+        #[cfg_attr(
+            feature = "datagen",
+            serde(
+                serialize_with = "PackedElementSerialize::serialize_element",
+                bound(serialize = "T: PackedElementSerialize")
+            )
+        )]
+        pub T,
+    );
+
+    impl<'de, T> PackedElementDeserialize<'de> for PluralElements<T>
+    where
+        T: Deserialize<'de>,
+    {
+        fn deserialize_element<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            icu_plurals::provider::deserialize_elements_flat_singleton(deserializer)
+        }
+    }
+
+    #[cfg(feature = "datagen")]
+    impl<T> PackedElementSerialize for PluralElements<T>
+    where
+        T: Serialize,
+    {
+        fn serialize_element<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            icu_plurals::provider::serialize_elements_flat_singleton(self, serializer)
+        }
+    }
 
     #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
     #[cfg_attr(feature = "datagen", derive(serde::Serialize))]
@@ -614,7 +673,18 @@ mod _serde {
             serde(default, skip_serializing_if = "Option::is_none")
         )]
         pub(super) variant_pattern_indices: Option<[u32; 6]>,
-        pub(super) elements: Vec<T>,
+        #[cfg_attr(
+            all(feature = "serde", not(feature = "datagen")),
+            serde(bound(deserialize = "T: PackedElementDeserialize<'de>"))
+        )]
+        #[cfg_attr(
+            all(feature = "serde", feature = "datagen"),
+            serde(bound(
+                serialize = "T: PackedElementSerialize",
+                deserialize = "T: PackedElementDeserialize<'de>"
+            ))
+        )]
+        pub(super) elements: Vec<PackedElementWrap<T>>,
     }
 
     impl<T> Default for GenericPackedPatternsHuman<T> {
@@ -629,14 +699,14 @@ mod _serde {
         }
     }
 
-    fn deserialize_helper<'de, 'data, U, T, D>(
+    pub(crate) fn deserialize_helper<'de, 'data, U, T, D>(
         deserializer: D,
         pack_fn: impl FnOnce(Vec<T>) -> VarZeroVec<'static, U>,
     ) -> Result<GenericPackedPatterns<'data, U>, D::Error>
     where
         U: VarULE + ?Sized,
-        T: Deserialize<'de>,
-        D: serde::Deserializer<'de>,
+        T: PackedElementDeserialize<'de>,
+        D: Deserializer<'de>,
         'de: 'data,
     {
         use serde::de::Error as _;
@@ -679,7 +749,7 @@ mod _serde {
                 }
             }
 
-            let elements = pack_fn(human.elements);
+            let elements = pack_fn(human.elements.into_iter().map(|w| w.0).collect());
             Ok(GenericPackedPatterns { header, elements })
         } else {
             let machine = <PackedPatternsMachine<'data, U>>::deserialize(deserializer)?;
@@ -691,15 +761,15 @@ mod _serde {
     }
 
     #[cfg(feature = "datagen")]
-    fn serialize_helper<'data, U, T, S>(
+    pub(crate) fn serialize_helper<'data, U, T, S>(
         packed: &GenericPackedPatterns<'data, U>,
         serializer: S,
         unpack_fn: impl FnOnce(&VarZeroSlice<U>) -> Vec<T>,
     ) -> Result<S::Ok, S::Error>
     where
         U: VarULE + Serialize + ?Sized,
-        T: Serialize,
-        S: serde::Serializer,
+        T: PackedElementSerialize,
+        S: Serializer,
     {
         if serializer.is_human_readable() {
             let unpacked = GenericUnpackedPatterns::from_packed(packed, unpack_fn);
@@ -718,7 +788,11 @@ mod _serde {
                 }
             }
 
-            human.elements = unpacked.elements;
+            human.elements = unpacked
+                .elements
+                .into_iter()
+                .map(PackedElementWrap)
+                .collect();
             human.serialize(serializer)
         } else {
             let machine = PackedPatternsMachine {
@@ -736,7 +810,7 @@ mod _serde {
     {
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where
-            D: serde::Deserializer<'de>,
+            D: Deserializer<'de>,
         {
             deserialize_helper::<_, PluralElements<reference::Pattern>, _>(
                 deserializer,
@@ -773,7 +847,7 @@ mod _serde {
     {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
-            S: serde::Serializer,
+            S: Serializer,
         {
             serialize_helper::<_, PluralElements<reference::Pattern>, _>(
                 self,

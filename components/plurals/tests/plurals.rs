@@ -45,6 +45,9 @@ fn test_plural_category_all() {
 #[cfg(feature = "serde")]
 #[test]
 fn test_plural_elements_serde() {
+    use icu_plurals::provider::{
+        deserialize_elements_flat_singleton, serialize_elements_flat_singleton,
+    };
     use icu_plurals::PluralElements;
 
     // 1. Single "other" value
@@ -52,18 +55,24 @@ fn test_plural_elements_serde() {
 
     #[cfg(feature = "datagen")]
     {
-        let single_json = serde_json::to_string(&single).unwrap();
+        let mut buf = Vec::new();
+        let mut serializer = serde_json::Serializer::new(&mut buf);
+        serialize_elements_flat_singleton(&single, &mut serializer).unwrap();
+        let single_json = String::from_utf8(buf).unwrap();
         // In human-readable format, it should serialize as a flat string.
         assert_eq!(single_json, "\"hello\"");
 
         // Deserialize back
-        let single_deser: PluralElements<String> = serde_json::from_str(&single_json).unwrap();
+        let mut deserializer = serde_json::Deserializer::from_str(&single_json);
+        let single_deser =
+            deserialize_elements_flat_singleton::<String, _>(&mut deserializer).unwrap();
         assert_eq!(single, single_deser);
     }
 
     // Deserialize from map format (it should also work)
     let map_json = "{\"other\":\"hello\"}";
-    let map_deser: PluralElements<String> = serde_json::from_str(map_json).unwrap();
+    let mut deserializer = serde_json::Deserializer::from_str(map_json);
+    let map_deser = deserialize_elements_flat_singleton::<String, _>(&mut deserializer).unwrap();
     assert_eq!(single, map_deser);
 
     // 2. Multiple values
@@ -72,12 +81,17 @@ fn test_plural_elements_serde() {
 
     #[cfg(feature = "datagen")]
     {
-        let multi_json = serde_json::to_string(&multi).unwrap();
+        let mut buf = Vec::new();
+        let mut serializer = serde_json::Serializer::new(&mut buf);
+        serialize_elements_flat_singleton(&multi, &mut serializer).unwrap();
+        let multi_json = String::from_utf8(buf).unwrap();
         // Should serialize as map
         assert_eq!(multi_json, "{\"one\":\"one_val\",\"other\":\"other_val\"}");
 
         // Deserialize back
-        let multi_deser: PluralElements<String> = serde_json::from_str(&multi_json).unwrap();
+        let mut deserializer = serde_json::Deserializer::from_str(&multi_json);
+        let multi_deser =
+            deserialize_elements_flat_singleton::<String, _>(&mut deserializer).unwrap();
         assert_eq!(multi, multi_deser);
     }
 }

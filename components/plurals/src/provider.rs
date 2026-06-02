@@ -928,7 +928,7 @@ impl<T> PluralElementsInner<(FourBitMetadata, T)> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, 'data, V> serde::Deserialize<'de> for &'data PluralElementsPackedULE<V>
+impl<'de, 'data, V> Deserialize<'de> for &'data PluralElementsPackedULE<V>
 where
     'de: 'data,
     V: VarULE + ?Sized,
@@ -949,10 +949,10 @@ where
 }
 
 #[cfg(feature = "serde")]
-impl<'de, V> serde::Deserialize<'de> for Box<PluralElementsPackedULE<V>>
+impl<'de, V> Deserialize<'de> for Box<PluralElementsPackedULE<V>>
 where
     V: VarULE + ?Sized,
-    Box<V>: serde::Deserialize<'de> + PartialEq + fmt::Debug,
+    Box<V>: Deserialize<'de> + PartialEq + fmt::Debug,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -972,9 +972,9 @@ where
 }
 
 #[cfg(feature = "datagen")]
-impl<V> serde::Serialize for PluralElementsPackedULE<V>
+impl<V> Serialize for PluralElementsPackedULE<V>
 where
-    V: PartialEq + serde::Serialize + VarULE + ?Sized,
+    V: PartialEq + Serialize + VarULE + ?Sized,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1033,7 +1033,7 @@ where
     'de: 'data,
     D: serde::Deserializer<'de>,
     V: VarULE + ?Sized,
-    Box<PluralElementsPackedULE<V>>: serde::Deserialize<'de>,
+    Box<PluralElementsPackedULE<V>>: Deserialize<'de>,
 {
     use serde::Deserialize;
     if deserializer.is_human_readable() {
@@ -1079,6 +1079,55 @@ where
     /// Returns the value for the given [`PluralOperands`] and [`PluralRules`].
     pub fn get<'a>(&'a self, op: PluralOperands, rules: &PluralRules) -> &'a V {
         self.elements.get(op, rules).1
+    }
+}
+
+#[cfg(feature = "serde")]
+use crate::PluralElementsHumanHelper;
+#[cfg(feature = "serde")]
+use serde::Deserialize;
+#[cfg(feature = "datagen")]
+use serde::Serialize;
+
+/// Helper for serializing `PluralElements` with special case where singletons are serialized directly.
+#[cfg(feature = "datagen")]
+pub fn serialize_elements_flat_singleton<T, S>(
+    plural_elements: &PluralElements<T>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    T: Serialize,
+    S: serde::Serializer,
+{
+    if serializer.is_human_readable() {
+        if let Some(single) = plural_elements.as_single_other() {
+            single.serialize(serializer)
+        } else {
+            plural_elements.0.serialize(serializer)
+        }
+    } else {
+        plural_elements.0.serialize(serializer)
+    }
+}
+
+/// Helper for deserializing `PluralElements` with special case where singletons are serialized directly.
+#[cfg(feature = "serde")]
+pub fn deserialize_elements_flat_singleton<'de, T, D>(
+    deserializer: D,
+) -> Result<PluralElements<T>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: serde::Deserializer<'de>,
+{
+    if deserializer.is_human_readable() {
+        let helper = PluralElementsHumanHelper::<T>::deserialize(deserializer)?;
+        match helper {
+            PluralElementsHumanHelper::Flat(other) => Ok(PluralElements::new(other)),
+            PluralElementsHumanHelper::Map(inner) => Ok(PluralElements(inner)),
+        }
+    } else {
+        let inner = PluralElementsInner::deserialize(deserializer)?;
+        Ok(PluralElements(inner))
     }
 }
 

@@ -208,6 +208,12 @@ export { TimeZoneInfo } from "./TimeZoneInfo.mjs"
 
 export { TimeZoneFormatter } from "./TimeZoneFormatter.mjs"
 
+export { ICU4XMeasureUnit } from "./ICU4XMeasureUnit.mjs"
+
+export { ICU4XUnitsConverter } from "./ICU4XUnitsConverter.mjs"
+
+export { ICU4XUnitsConverterFactory } from "./ICU4XUnitsConverterFactory.mjs"
+
 export { UtcOffset } from "./UtcOffset.mjs"
 
 export { VariantOffsetsCalculator } from "./VariantOffsetsCalculator.mjs"

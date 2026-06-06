@@ -210,6 +210,12 @@ export { TimeZoneInfo } from "./TimeZoneInfo"
 
 export { TimeZoneFormatter } from "./TimeZoneFormatter"
 
+export { ICU4XMeasureUnit } from "./ICU4XMeasureUnit"
+
+export { ICU4XUnitsConverter } from "./ICU4XUnitsConverter"
+
+export { ICU4XUnitsConverterFactory } from "./ICU4XUnitsConverterFactory"
+
 export { UtcOffset } from "./UtcOffset"
 
 export { VariantOffsetsCalculator } from "./VariantOffsetsCalculator"

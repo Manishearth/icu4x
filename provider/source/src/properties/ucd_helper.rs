@@ -13,6 +13,15 @@ use icu_provider::prelude::*;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use zerovec::VarZeroVec;
 
+/// Type of property name alias.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(super) enum NameType {
+    Short,
+    Long,
+    Numeric,
+    Alias,
+}
+
 impl SourceDataProvider {
     /// Helper to parse UCD files line-by-line, providing an iterator over the fields of each line.
     ///
@@ -258,5 +267,67 @@ impl SourceDataProvider {
         })?;
 
         Ok((script_sets, char_with_extensions))
+    }
+    /// Parses `PropertyValueAliases.txt` to retrieve the names and aliases for an enumerated property.
+    ///
+    /// Returns a map from names/aliases to their canonical short names and name types,
+    /// along with an optional default value if declared in the file.
+    ///
+    /// Note: This function does NOT use the `parse_ucd_lines` helper because it needs to
+    /// parse `@missing` metadata which is encoded in UCD comments.
+    #[allow(clippy::type_complexity)] // just a tuple
+    pub(super) fn enumerated_prop_names<'a>(
+        &'a self,
+        name: &str,
+        short_name: &str,
+    ) -> Result<(BTreeMap<&'a str, (&'a str, NameType)>, Option<&'a str>), DataError> {
+        let mut names = BTreeMap::new();
+        let mut default = None;
+
+        for line in self
+            .unicode()?
+            .read_to_string("ucd/PropertyValueAliases.txt")?
+            .lines()
+        {
+            if let Some(line) = line.strip_prefix("# @missing: 0000..10FFFF; ") {
+                let mut parts = line.split(';').map(str::trim);
+                if parts.next().unwrap() != name {
+                    continue;
+                }
+                default = Some(parts.next().unwrap());
+            };
+            let line = line.split('#').next().unwrap().trim();
+            if line.is_empty() {
+                continue;
+            }
+            let mut parts = line.split(';').map(str::trim);
+            if parts.next().unwrap() != short_name {
+                continue;
+            }
+            let numeric_name = (short_name.as_bytes()
+                == icu::properties::props::CanonicalCombiningClass::SHORT_NAME)
+                .then(|| parts.next().unwrap());
+            let short = parts.next().unwrap();
+            let long = parts.next().unwrap();
+            names.insert(short, (short, NameType::Short));
+            names.insert(long, (short, NameType::Long));
+            for alias in parts {
+                names.insert(alias, (short, NameType::Alias));
+            }
+            if let Some(numeric_name) = numeric_name {
+                names.insert(numeric_name, (short, NameType::Numeric));
+            }
+        }
+
+        for name in names.keys() {
+            if name.contains('-') || name.bytes().any(|b| b.is_ascii_whitespace()) {
+                return Err(
+                    DataError::custom("Property name contains '-' or whitespace")
+                        .with_display_context(name),
+                );
+            }
+        }
+
+        Ok((names, default))
     }
 }

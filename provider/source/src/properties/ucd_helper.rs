@@ -6,7 +6,7 @@ use crate::SourceDataProvider;
 use icu::collections::codepointinvlist::{CodePointInversionList, CodePointInversionListBuilder};
 use icu::collections::codepointinvliststringlist::CodePointInversionListAndStringList;
 use icu_provider::prelude::*;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use zerovec::VarZeroVec;
 
 impl SourceDataProvider {
@@ -161,5 +161,17 @@ impl SourceDataProvider {
             VarZeroVec::from(&strings.into_iter().collect::<Vec<_>>()),
         )
         .expect("invariants upheld"))
+    }
+
+    /// Parses `BidiMirroring.txt` to create a map of code points to their mirrored characters.
+    pub(super) fn parse_bidi_mirroring(&self) -> Result<HashMap<u32, char>, DataError> {
+        let mut bidi_mirroring = HashMap::new();
+        self.parse_ucd_lines("ucd/BidiMirroring.txt", |fields| {
+            let cp = u32::from_str_radix(fields.next().unwrap(), 16).unwrap();
+            let value = u32::from_str_radix(fields.next().unwrap(), 16).unwrap();
+            bidi_mirroring.insert(cp, char::from_u32(value).unwrap());
+            Ok(())
+        })?;
+        Ok(bidi_mirroring)
     }
 }

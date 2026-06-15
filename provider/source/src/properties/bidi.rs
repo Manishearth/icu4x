@@ -42,24 +42,7 @@ impl DataProvider<PropertyEnumBidiMirroringGlyphV1> for SourceDataProvider {
 
         let bidi_m_cpinvlist = self.get_binary_prop("Bidi_Mirrored", "Bidi_M")?;
 
-        let bidi_mirroring = self
-            .unicode()?
-            .read_to_string("ucd/BidiMirroring.txt")?
-            .lines()
-            .filter_map(|line| {
-                let line = line.split('#').next().unwrap().trim();
-                if line.is_empty() {
-                    return None;
-                }
-                let mut fields = line.split(';');
-                let cp_range = fields.next().unwrap().trim();
-                let prop_value = fields.next().unwrap().trim();
-                let value = u32::from_str_radix(prop_value, 16).expect(prop_value);
-
-                let cp = u32::from_str_radix(cp_range, 16).unwrap();
-                Some((cp, char::from_u32(value).unwrap()))
-            })
-            .collect::<HashMap<_, _>>();
+        let bidi_mirroring = self.parse_bidi_mirroring()?;
 
         let paired_brackets = self
            .unicode()?

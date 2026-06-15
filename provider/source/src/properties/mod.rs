@@ -11,3 +11,5 @@ mod emoji_set;
 mod enum_codepointtrie;
 mod script;
 mod uprops_serde;
+pub(super) mod ucd_helper;
+mod uprops_serde;

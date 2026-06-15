@@ -12,33 +12,6 @@ use icu_provider::prelude::*;
 use std::collections::HashSet;
 
 impl SourceDataProvider {
-    pub(super) fn validate_property_name(
-        &self,
-        name: &str,
-        short_name: &str,
-    ) -> Result<(), DataError> {
-        let sn = self
-            .unicode()?
-            .read_to_string("ucd/PropertyAliases.txt")?
-            .lines()
-            .filter_map(|l| Some(l.split('#').next().unwrap().trim()).filter(|l| !l.is_empty()))
-            .find_map(|l| {
-                let mut fields = l.split(';').map(str::trim);
-                let sn = fields.next()?;
-                let n = fields.next()?;
-                if n == name { Some(sn) } else { None }
-            });
-
-        if let Some(sn) = sn
-            && sn != short_name
-        {
-            return Err(DataError::custom("Property name mismatch")
-                .with_display_context(name)
-                .with_debug_context(&(sn, short_name)));
-        }
-
-        Ok(())
-    }
 
     // get the source data for a Unicode binary property that only defines values for code points
     pub(super) fn get_binary_prop(

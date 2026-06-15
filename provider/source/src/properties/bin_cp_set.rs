@@ -4,80 +4,14 @@
 
 use crate::SourceDataProvider;
 use icu::casemap::options::TitlecaseOptions;
-use icu::collections::codepointinvlist::{CodePointInversionList, CodePointInversionListBuilder};
+use icu::collections::codepointinvlist::CodePointInversionListBuilder;
 use icu::locale::LanguageIdentifier;
 use icu::properties::props::BinaryProperty;
 use icu::properties::{CodePointMapData, provider::*};
 use icu_provider::prelude::*;
 use std::collections::HashSet;
 
-impl SourceDataProvider {
 
-    // get the source data for a Unicode binary property that only defines values for code points
-    pub(super) fn get_binary_prop(
-        &self,
-        name: &str,
-        short_name: &str,
-    ) -> Result<CodePointInversionList<'static>, DataError> {
-        let mut builder = CodePointInversionListBuilder::new();
-
-        self.validate_property_name(name, short_name)?;
-
-        let file = match name {
-            "Alphabetic"
-            | "Case_Ignorable"
-            | "Cased"
-            | "Changes_When_Casefolded"
-            | "Changes_When_Casemapped"
-            | "Changes_When_Lowercased"
-            | "Changes_When_Titlecased"
-            | "Changes_When_Uppercased"
-            | "Default_Ignorable_Code_Point"
-            | "Grapheme_Base"
-            | "Grapheme_Extend"
-            | "Grapheme_Link"
-            | "ID_Continue"
-            | "ID_Start"
-            | "Lowercase"
-            | "Math"
-            | "Uppercase"
-            | "XID_Continue"
-            | "XID_Start" => "ucd/DerivedCoreProperties.txt",
-            "Changes_When_NFKC_Casefolded" | "Full_Composition_Exclusion" => {
-                "ucd/DerivedNormalizationProps.txt"
-            }
-            "Emoji_Component"
-            | "Emoji_Modifier_Base"
-            | "Emoji_Modifier"
-            | "Emoji_Presentation"
-            | "Emoji"
-            | "Extended_Pictographic" => "ucd/emoji/emoji-data.txt",
-            "Bidi_Mirrored" => "ucd/extracted/DerivedBinaryProperties.txt",
-            _ => "ucd/PropList.txt",
-        };
-
-        for line in self.unicode()?.read_to_string(file)?.lines() {
-            let line = line.split('#').next().unwrap().trim();
-            if line.is_empty() {
-                continue;
-            }
-
-            let mut parts = line.split(';').map(str::trim);
-            let range = parts.next().unwrap();
-            if parts.next() != Some(name) {
-                continue;
-            }
-
-            let (a, b) = range.split_once("..").unwrap_or((range, range));
-            let a = u32::from_str_radix(a, 16).unwrap();
-            let b = u32::from_str_radix(b, 16).unwrap();
-
-            builder.add_range32(a..=b);
-        }
-
-        Ok(builder.build())
-    }
-}
 
 macro_rules! impl_unicode_property {
     ($(($prop:ty, $marker:ident)),+) => {

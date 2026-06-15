@@ -3,6 +3,7 @@
 // (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
 
 use crate::SourceDataProvider;
+use icu::collections::codepointinvlist::{CodePointInversionList, CodePointInversionListBuilder};
 use icu_provider::prelude::*;
 
 impl SourceDataProvider {
@@ -59,5 +60,64 @@ impl SourceDataProvider {
         }
 
         Ok(())
+    }
+
+    /// Retrieves the set of code points associated with a binary property.
+    ///
+    /// This helper reads the appropriate UCD file (e.g., `DerivedCoreProperties.txt`,
+    /// `PropList.txt`) and builds a `CodePointInversionList` representing the set.
+    pub(super) fn get_binary_prop(
+        &self,
+        name: &str,
+        short_name: &str,
+    ) -> Result<CodePointInversionList<'static>, DataError> {
+        let mut builder = CodePointInversionListBuilder::new();
+
+        self.validate_property_name(name, short_name)?;
+
+        let file = match name {
+            "Alphabetic"
+            | "Case_Ignorable"
+            | "Cased"
+            | "Changes_When_Casefolded"
+            | "Changes_When_Casemapped"
+            | "Changes_When_Lowercased"
+            | "Changes_When_Titlecased"
+            | "Changes_When_Uppercased"
+            | "Default_Ignorable_Code_Point"
+            | "Grapheme_Base"
+            | "Grapheme_Extend"
+            | "Grapheme_Link"
+            | "ID_Continue"
+            | "ID_Start"
+            | "Lowercase"
+            | "Math"
+            | "Uppercase"
+            | "XID_Continue"
+            | "XID_Start" => "ucd/DerivedCoreProperties.txt",
+            "Changes_When_NFKC_Casefolded" | "Full_Composition_Exclusion" => {
+                "ucd/DerivedNormalizationProps.txt"
+            }
+            "Emoji_Component"
+            | "Emoji_Modifier_Base"
+            | "Emoji_Modifier"
+            | "Emoji_Presentation"
+            | "Emoji"
+            | "Extended_Pictographic" => "ucd/emoji/emoji-data.txt",
+            "Bidi_Mirrored" => "ucd/extracted/DerivedBinaryProperties.txt",
+            _ => "ucd/PropList.txt",
+        };
+
+        self.parse_ucd_lines(file, |fields| {
+            let range = fields.next().unwrap();
+            if fields.next() != Some(name) {
+                return Ok(());
+            }
+
+            builder.add_range32(parse_range(range));
+            Ok(())
+        })?;
+
+        Ok(builder.build())
     }
 }

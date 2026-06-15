@@ -8,8 +8,6 @@ use icu::properties::provider::*;
 use icu_provider::prelude::*;
 use std::collections::HashSet;
 
-
-
 macro_rules! expand {
     ($(($prop:ty, $marker:ident)),+) => {
         $(

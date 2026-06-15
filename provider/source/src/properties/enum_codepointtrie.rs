@@ -7,6 +7,7 @@
     allow(unused_imports, dead_code)
 )]
 
+use super::ucd_helper::NameType;
 use crate::SourceDataProvider;
 use icu::collections::codepointtrie::{CodePointTrie, TrieValue};
 use icu::properties::props::EnumeratedProperty;
@@ -17,8 +18,6 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use zerotrie::ZeroTrieSimpleAscii;
 use zerovec::ule::NichedOption;
-
-
 
 fn validate_dense<T: TrieValue + Ord + Debug>(map: &BTreeMap<T, &str>) -> Result<(), DataError> {
     if let Some((&first, _)) = map.first_key_value() {

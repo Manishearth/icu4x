@@ -5,12 +5,22 @@
 use crate::SourceDataProvider;
 use icu::collections::codepointinvlist::{CodePointInversionList, CodePointInversionListBuilder};
 use icu::collections::codepointinvliststringlist::CodePointInversionListAndStringList;
-use icu::properties::props::{BidiPairedBracketType, Script};
-use icu::properties::script::ScriptWithExt;
-use icu::properties::PropertyParser;
+#[cfg(any(feature = "use_wasm", feature = "use_icu4c"))]
+use icu::collections::codepointtrie::CodePointTrie;
+#[cfg(any(feature = "use_wasm", feature = "use_icu4c"))]
 use icu::properties::CodePointMapData;
+#[cfg(any(feature = "use_wasm", feature = "use_icu4c"))]
+use icu::properties::PropertyParser;
+use icu::properties::props::EnumeratedProperty;
+#[cfg(any(feature = "use_wasm", feature = "use_icu4c"))]
+use icu::properties::props::{BidiPairedBracketType, Script};
+#[cfg(any(feature = "use_wasm", feature = "use_icu4c"))]
+use icu::properties::script::ScriptWithExt;
+
 use icu_provider::prelude::*;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[cfg(any(feature = "use_wasm", feature = "use_icu4c"))]
+use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use zerovec::VarZeroVec;
 
@@ -21,6 +31,13 @@ pub(super) enum NameType {
     Long,
     Numeric,
     Alias,
+}
+
+fn parse_range(range_str: &str) -> std::ops::RangeInclusive<u32> {
+    let (a, b) = range_str.split_once("..").unwrap_or((range_str, range_str));
+    let a = u32::from_str_radix(a, 16).unwrap();
+    let b = u32::from_str_radix(b, 16).unwrap();
+    a..=b
 }
 
 impl SourceDataProvider {
@@ -178,6 +195,7 @@ impl SourceDataProvider {
     }
 
     /// Parses `BidiMirroring.txt` to create a map of code points to their mirrored characters.
+    #[cfg(any(feature = "use_wasm", feature = "use_icu4c"))]
     pub(super) fn parse_bidi_mirroring(&self) -> Result<HashMap<u32, char>, DataError> {
         let mut bidi_mirroring = HashMap::new();
         self.parse_ucd_lines("ucd/BidiMirroring.txt", |fields| {
@@ -192,6 +210,7 @@ impl SourceDataProvider {
     /// Parses `BidiBrackets.txt` to create a map of code points to their bidi paired bracket types.
     ///
     /// This helper also cross-validates the results with the provided `bidi_mirroring` map.
+    #[cfg(any(feature = "use_wasm", feature = "use_icu4c"))]
     pub(super) fn parse_bidi_brackets(
         &self,
         bidi_mirroring: &HashMap<u32, char>,
@@ -227,6 +246,7 @@ impl SourceDataProvider {
     /// 2. A map from code points to `ScriptWithExt` (`HashMap<u32, ScriptWithExt>`), which
     ///    associates the code point with its primary script and an index into the script sets list.
     #[allow(clippy::type_complexity)]
+    #[cfg(any(feature = "use_wasm", feature = "use_icu4c"))]
     pub(super) fn parse_script_extensions(
         &self,
         script_parser: &PropertyParser<Script>,
@@ -451,11 +471,4 @@ impl SourceDataProvider {
 
         Ok(builder.build())
     }
-}
-
-fn parse_range(range_str: &str) -> std::ops::RangeInclusive<u32> {
-    let (a, b) = range_str.split_once("..").unwrap_or((range_str, range_str));
-    let a = u32::from_str_radix(a, 16).unwrap();
-    let b = u32::from_str_radix(b, 16).unwrap();
-    a..=b
 }

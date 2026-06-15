@@ -11,8 +11,6 @@ use icu::properties::{CodePointMapData, provider::*};
 use icu_provider::prelude::*;
 use std::collections::HashSet;
 
-
-
 macro_rules! impl_unicode_property {
     ($(($prop:ty, $marker:ident)),+) => {
         $(

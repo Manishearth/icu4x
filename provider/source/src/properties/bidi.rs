@@ -21,7 +21,6 @@ impl DataProvider<PropertyEnumBidiMirroringGlyphV1> for SourceDataProvider {
         use icu::properties::props::BidiPairedBracketType;
         use icu::properties::props::EnumeratedProperty;
         use icu_codepointtrie_builder::CodePointTrieBuilder;
-        use std::collections::HashMap;
 
         self.check_req::<PropertyEnumBidiMirroringGlyphV1>(req)?;
 
@@ -44,35 +43,7 @@ impl DataProvider<PropertyEnumBidiMirroringGlyphV1> for SourceDataProvider {
 
         let bidi_mirroring = self.parse_bidi_mirroring()?;
 
-        let paired_brackets = self
-           .unicode()?
-            .read_to_string("ucd/BidiBrackets.txt")?
-            .lines()
-            .filter_map(|line| {
-                let line = line.split('#').next().unwrap().trim();
-                if line.is_empty() {
-                    return None;
-                }
-                let mut parts = line.split(';');
-                let cp = u32::from_str_radix(parts.next().unwrap().trim(), 16).unwrap();
-                let mirror = u32::from_str_radix(parts.next().unwrap().trim(), 16).unwrap();
-
-                if bidi_mirroring[&cp] as u32 != mirror {
-                    log::warn!(
-                        "BidiMirroring.txt and BidiBrackets.txt disagree for U+{cp:X}: {:?} vs U+{mirror:X}", 
-                        bidi_mirroring[&cp]
-                    );
-                }
-
-                let typ = match parts.next().unwrap().trim() {
-                    "o" => BidiPairedBracketType::Open,
-                    "c" => BidiPairedBracketType::Close,
-                    "n" => BidiPairedBracketType::None,
-                    _ => unreachable!(),
-                };
-                Some((cp, typ))
-            })
-            .collect::<HashMap<_, _>>();
+        let paired_brackets = self.parse_bidi_brackets(&bidi_mirroring)?;
 
         let mut builder = CodePointTrieBuilder::new(
             BidiMirroringGlyph::default(),

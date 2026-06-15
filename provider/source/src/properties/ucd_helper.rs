@@ -5,6 +5,7 @@
 use crate::SourceDataProvider;
 use icu::collections::codepointinvlist::{CodePointInversionList, CodePointInversionListBuilder};
 use icu::collections::codepointinvliststringlist::CodePointInversionListAndStringList;
+use icu::properties::props::BidiPairedBracketType;
 use icu_provider::prelude::*;
 use std::collections::{BTreeSet, HashMap};
 use zerovec::VarZeroVec;
@@ -173,5 +174,36 @@ impl SourceDataProvider {
             Ok(())
         })?;
         Ok(bidi_mirroring)
+    }
+
+    /// Parses `BidiBrackets.txt` to create a map of code points to their bidi paired bracket types.
+    ///
+    /// This helper also cross-validates the results with the provided `bidi_mirroring` map.
+    pub(super) fn parse_bidi_brackets(
+        &self,
+        bidi_mirroring: &HashMap<u32, char>,
+    ) -> Result<HashMap<u32, BidiPairedBracketType>, DataError> {
+        let mut paired_brackets = HashMap::new();
+        self.parse_ucd_lines("ucd/BidiBrackets.txt", |fields| {
+            let cp = u32::from_str_radix(fields.next().unwrap(), 16).unwrap();
+            let mirror = u32::from_str_radix(fields.next().unwrap(), 16).unwrap();
+
+            if bidi_mirroring[&cp] as u32 != mirror {
+                log::warn!(
+                    "BidiMirroring.txt and BidiBrackets.txt disagree for U+{cp:X}: {:?} vs U+{mirror:X}", 
+                    bidi_mirroring[&cp]
+                );
+            }
+
+            let typ = match fields.next().unwrap() {
+                "o" => BidiPairedBracketType::Open,
+                "c" => BidiPairedBracketType::Close,
+                "n" => BidiPairedBracketType::None,
+                _ => unreachable!(),
+            };
+            paired_brackets.insert(cp, typ);
+            Ok(())
+        })?;
+        Ok(paired_brackets)
     }
 }

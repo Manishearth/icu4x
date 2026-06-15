@@ -5,9 +5,12 @@
 use crate::SourceDataProvider;
 use icu::collections::codepointinvlist::{CodePointInversionList, CodePointInversionListBuilder};
 use icu::collections::codepointinvliststringlist::CodePointInversionListAndStringList;
-use icu::properties::props::BidiPairedBracketType;
+use icu::properties::props::{BidiPairedBracketType, Script};
+use icu::properties::script::ScriptWithExt;
+use icu::properties::PropertyParser;
+use icu::properties::CodePointMapData;
 use icu_provider::prelude::*;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use zerovec::VarZeroVec;
 
 impl SourceDataProvider {
@@ -205,5 +208,55 @@ impl SourceDataProvider {
             Ok(())
         })?;
         Ok(paired_brackets)
+    }
+
+    /// Parses `ScriptExtensions.txt` to create script sets and a lookup map for code points.
+    ///
+    /// Returns a tuple containing:
+    /// 1. A list of unique script sets (`Vec<Vec<Script>>`), where each set is sorted.
+    /// 2. A map from code points to `ScriptWithExt` (`HashMap<u32, ScriptWithExt>`), which
+    ///    associates the code point with its primary script and an index into the script sets list.
+    #[allow(clippy::type_complexity)]
+    pub(super) fn parse_script_extensions(
+        &self,
+        script_parser: &PropertyParser<Script>,
+        script: &CodePointMapData<Script>,
+    ) -> Result<(Vec<Vec<Script>>, HashMap<u32, ScriptWithExt>), DataError> {
+        let mut script_sets = vec![];
+        let mut script_sets_lookup = BTreeMap::new();
+        let mut char_with_extensions = HashMap::new();
+
+        self.parse_ucd_lines("ucd/ScriptExtensions.txt", |fields| {
+            let cp_range = fields.next().unwrap();
+            let values = fields.next().unwrap();
+            let mut value = values
+                .split_ascii_whitespace()
+                .filter_map(|s| script_parser.as_borrowed().get_strict(s))
+                .collect::<Vec<_>>();
+            // Sort in discriminant order
+            value.sort();
+
+            for cp in parse_range(cp_range) {
+                let mut value = value.clone();
+
+                let script = script.as_borrowed().get32(cp);
+                if !matches!(script, Script::Inherited | Script::Common) {
+                    value.insert(0, script);
+                }
+
+                if !script_sets_lookup.contains_key(&value) {
+                    script_sets_lookup.insert(value.clone(), script_sets.len());
+                    script_sets.push(value.clone());
+                }
+
+                char_with_extensions.insert(
+                    cp,
+                    ScriptWithExt::new(script, script_sets_lookup[&value] as u16),
+                );
+            }
+            Ok(())
+        })?;
+
+        Ok((script_sets, char_with_extensions))
     }
 }

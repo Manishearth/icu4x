@@ -14,7 +14,7 @@ use icu::properties::provider::{PropertyScriptWithExtensionsV1, ScriptWithExtens
 use icu::properties::script::ScriptWithExt;
 use icu::properties::{CodePointMapData, PropertyParser};
 use icu_provider::prelude::*;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::HashSet;
 use zerovec::{VarZeroVec, ZeroSlice, ZeroVec};
 
 // implement data provider
@@ -49,53 +49,8 @@ impl DataProvider<PropertyScriptWithExtensionsV1> for SourceDataProvider {
                 let script_parser = PropertyParser::<Script>::try_new_unstable(&self)?;
                 let script = CodePointMapData::try_new_unstable(self)?;
 
-                let mut script_sets = vec![];
-                let mut script_sets_lookup = BTreeMap::new();
-
-                let mut char_with_extensions = HashMap::new();
-
-                for line in self
-                    .unicode()?
-                    .read_to_string("ucd/ScriptExtensions.txt")?
-                    .lines()
-                {
-                    let line = line.split('#').next().unwrap().trim();
-                    if line.is_empty() {
-                        continue;
-                    }
-                    let mut fields = line.split(';');
-                    let cp_range = fields.next().unwrap().trim();
-                    let values = fields.next().unwrap().trim();
-                    let mut value = values
-                        .split_ascii_whitespace()
-                        .filter_map(|s| script_parser.as_borrowed().get_strict(s))
-                        .collect::<Vec<_>>();
-                    // Sort in discriminant order
-                    value.sort();
-
-                    let (start, end) = cp_range.split_once("..").unwrap_or((cp_range, cp_range));
-                    let start = u32::from_str_radix(start, 16).unwrap();
-                    let end = u32::from_str_radix(end, 16).unwrap();
-
-                    for cp in start..=end {
-                        let mut value = value.clone();
-
-                        let script = script.as_borrowed().get32(cp);
-                        if !matches!(script, Script::Inherited | Script::Common) {
-                            value.insert(0, script);
-                        }
-
-                        if !script_sets_lookup.contains_key(&value) {
-                            script_sets_lookup.insert(value.clone(), script_sets.len());
-                            script_sets.push(value.clone());
-                        }
-
-                        char_with_extensions.insert(
-                            cp,
-                            ScriptWithExt::new(script, script_sets_lookup[&value] as u16),
-                        );
-                    }
-                }
+                let (script_sets, char_with_extensions) =
+                    self.parse_script_extensions(&script_parser, &script)?;
 
                 let mut builder = icu_codepointtrie_builder::CodePointTrieBuilder::new(
                     ScriptWithExt::single(Script::Unknown),

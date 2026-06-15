@@ -4,7 +4,10 @@
 
 use crate::SourceDataProvider;
 use icu::collections::codepointinvlist::{CodePointInversionList, CodePointInversionListBuilder};
+use icu::collections::codepointinvliststringlist::CodePointInversionListAndStringList;
 use icu_provider::prelude::*;
+use std::collections::BTreeSet;
+use zerovec::VarZeroVec;
 
 impl SourceDataProvider {
     /// Helper to parse UCD files line-by-line, providing an iterator over the fields of each line.
@@ -119,5 +122,44 @@ impl SourceDataProvider {
         })?;
 
         Ok(builder.build())
+    }
+
+    /// Retrieves the set of code points and strings associated with an emoji property.
+    ///
+    /// This helper reads `emoji-sequences.txt` and builds a `CodePointInversionListAndStringList`.
+    pub(super) fn get_unicodeset_property(
+        &self,
+        name: &str,
+        short_name: &str,
+    ) -> Result<CodePointInversionListAndStringList<'static>, DataError> {
+        self.validate_property_name(name, short_name)?;
+
+        let mut inv_list = CodePointInversionListBuilder::new();
+        let mut strings = BTreeSet::new();
+
+        self.parse_ucd_lines("emoji/emoji-sequences.txt", |fields| {
+            let seq = fields.next().unwrap();
+            if fields.next() != Some(short_name) {
+                return Ok(());
+            }
+            if seq.contains(' ') {
+                strings.insert(
+                    seq.split(' ')
+                        .map(|cp| char::from_u32(u32::from_str_radix(cp, 16).unwrap()).unwrap())
+                        .collect::<String>(),
+                );
+            } else {
+                inv_list.add_range32(parse_range(seq));
+            }
+            Ok(())
+        })?;
+
+        let inv_list = inv_list.build();
+
+        Ok(CodePointInversionListAndStringList::try_from(
+            inv_list,
+            VarZeroVec::from(&strings.into_iter().collect::<Vec<_>>()),
+        )
+        .expect("invariants upheld"))
     }
 }

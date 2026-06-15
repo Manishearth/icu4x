@@ -3,64 +3,12 @@
 // (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
 
 use crate::SourceDataProvider;
-use icu::collections::codepointinvlist::CodePointInversionListBuilder;
-use icu::collections::codepointinvliststringlist::CodePointInversionListAndStringList;
 use icu::properties::props::EmojiSet;
 use icu::properties::provider::*;
 use icu_provider::prelude::*;
-use std::collections::{BTreeSet, HashSet};
-use zerovec::VarZeroVec;
+use std::collections::HashSet;
 
-impl SourceDataProvider {
-    fn get_unicodeset_property(
-        &self,
-        name: &str,
-        short_name: &str,
-    ) -> Result<CodePointInversionListAndStringList<'static>, DataError> {
-        self.validate_property_name(name, short_name)?;
 
-        let mut inv_list = CodePointInversionListBuilder::new();
-        let mut strings = BTreeSet::new();
-
-        for line in self
-            .unicode()?
-            .read_to_string("emoji/emoji-sequences.txt")?
-            .lines()
-        {
-            let line = line.split('#').next().unwrap().trim();
-            if line.is_empty() {
-                continue;
-            }
-
-            let mut parts = line.split(';').map(str::trim);
-            let seq = parts.next().unwrap();
-            if parts.next().unwrap() != short_name {
-                continue;
-            }
-            if let Some((a, b)) = seq.split_once("..") {
-                inv_list.add_range32(
-                    u32::from_str_radix(a, 16).unwrap()..=u32::from_str_radix(b, 16).unwrap(),
-                );
-            } else if seq.contains(' ') {
-                strings.insert(
-                    seq.split(' ')
-                        .map(|cp| char::from_u32(u32::from_str_radix(cp, 16).unwrap()).unwrap())
-                        .collect::<String>(),
-                );
-            } else {
-                inv_list.add32(u32::from_str_radix(seq, 16).unwrap());
-            }
-        }
-
-        let inv_list = inv_list.build();
-
-        Ok(CodePointInversionListAndStringList::try_from(
-            inv_list,
-            VarZeroVec::from(&strings.into_iter().collect::<Vec<_>>()),
-        )
-        .expect("invariants upheld"))
-    }
-}
 
 macro_rules! expand {
     ($(($prop:ty, $marker:ident)),+) => {

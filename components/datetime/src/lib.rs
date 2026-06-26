@@ -152,6 +152,8 @@ pub use neo::DateTimeFormatterPreferences;
 pub use neo::FixedCalendarDateTimeFormatter;
 pub use neo::FormattedDateTime;
 pub use neo::NoCalendarFormatter;
+#[cfg(feature = "unstable")]
+pub use range::FixedCalendarDateRangeFormatter;
 
 /// Locale preferences used by this crate
 pub mod preferences {

@@ -54,7 +54,6 @@ impl Difference {
         )
     }
 }
-
 /// Resolves the greatest difference between two datetimes.
 ///
 /// If `dayperiod_names` is provided, it will be used to resolve flexible day periods (`B`).

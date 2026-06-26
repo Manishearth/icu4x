@@ -273,9 +273,13 @@ fn format_impl_shared<'a>(
             Difference::None | Difference::Mixed | Difference::Second
         )
     {
-        return FormattedDateRange {
-            inner: fallback_format_shared(core, range_selection, start, end, names),
-        };
+        return FormattedDateRange(fallback_format_shared(
+            core,
+            range_selection,
+            start,
+            end,
+            names,
+        ));
     }
 
     // 2. Select pattern and format
@@ -320,7 +324,7 @@ fn format_impl_shared<'a>(
             }
         }
     };
-    FormattedDateRange { inner }
+    FormattedDateRange(inner)
 }
 
 /// Formats the range using the fallback range pattern (gluing the fully formatted

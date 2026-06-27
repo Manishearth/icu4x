@@ -182,6 +182,7 @@ lazy_static::lazy_static! {
         "icu::datetime::DateTimeFormatter::format_unchecked",
         "icu::datetime::NoCalendarFormatter::format_unchecked",
         "icu::datetime::FormattedDateTimeUnchecked",
+        "icu::datetime::range::DateRangeFormatter",
         "icu::datetime::range::FixedCalendarDateRangeFormatter",
         "icu::datetime::range::FormattedDateRange",
 

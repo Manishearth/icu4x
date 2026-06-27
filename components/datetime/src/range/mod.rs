@@ -6,5 +6,5 @@ pub(crate) mod difference;
 pub(crate) mod formatter;
 pub(crate) mod write;
 
-pub use formatter::FixedCalendarDateRangeFormatter;
+pub use formatter::{DateRangeFormatter, FixedCalendarDateRangeFormatter};
 pub use write::FormattedDateRange;

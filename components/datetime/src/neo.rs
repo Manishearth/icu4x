@@ -497,7 +497,7 @@ where
     FSet::T: TimeMarkers,
     FSet::Z: ZoneMarkers,
 {
-    fn try_new_internal<P, L>(
+    pub(crate) fn try_new_internal<P, L>(
         provider: &P,
         loader: &L,
         prefs: DateTimeFormatterPreferences,

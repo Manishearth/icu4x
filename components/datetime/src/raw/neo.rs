@@ -23,6 +23,8 @@ use crate::provider::{
     packed_pattern::{ErasedPackedPatterns, PackedSkeletonVariant},
     semantic_skeletons::{DatetimePatternsGlueV1, GluePattern, marker_attrs},
 };
+#[cfg(feature = "unstable")]
+use crate::range::difference::Difference;
 use icu_calendar::types::YearAmbiguity;
 use icu_provider::DataPayloadOr;
 use icu_provider::prelude::*;

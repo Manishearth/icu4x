@@ -123,23 +123,23 @@ impl ItemsAndOptions<'_> {
 
 #[derive(Debug, Clone)]
 pub(crate) struct DateTimeZonePatternSelectionData {
-    options: RawOptions,
-    prefs: RawPreferences,
-    date: DatePatternSelectionData,
+    pub(crate) options: RawOptions,
+    pub(crate) prefs: RawPreferences,
+    pub(crate) date: DatePatternSelectionData,
     // The data for the overlap case is the same as for time, so we use the same intermediate
     // type. This means that we can't have overlap patterns with both a year and a time. This
     // assumption might need to be revisited.
-    time: TimePatternSelectionData,
-    zone: Option<ZonePatternSelectionData>,
-    glue: Option<DataPayload<DatetimePatternsGlueV1>>,
+    pub(crate) time: TimePatternSelectionData,
+    pub(crate) zone: Option<ZonePatternSelectionData>,
+    pub(crate) glue: Option<DataPayload<DatetimePatternsGlueV1>>,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct DateTimeZonePatternDataBorrowed<'a> {
-    date: Option<DatePatternDataBorrowed<'a>>,
-    time: Option<TimePatternDataBorrowed<'a>>,
-    zone: Option<ZonePatternDataBorrowed<'a>>,
-    glue: Option<&'a GluePattern<'a>>,
+    pub(crate) date: Option<DatePatternDataBorrowed<'a>>,
+    pub(crate) time: Option<TimePatternDataBorrowed<'a>>,
+    pub(crate) zone: Option<ZonePatternDataBorrowed<'a>>,
+    pub(crate) glue: Option<&'a GluePattern<'a>>,
 }
 
 impl DatePatternSelectionData {
@@ -242,7 +242,7 @@ impl DatePatternSelectionData {
 #[allow(dead_code)]
 pub(crate) struct DateRangePatternSelectionData {
     /// The loaded date range patterns, or `None` if date range formatting is not supported.
-    payload: DataPayloadOr<ErasedPackedRangePatterns, ()>,
+    pub(crate) payload: DataPayloadOr<ErasedPackedRangePatterns, ()>,
 }
 
 #[cfg(feature = "unstable")]
@@ -271,6 +271,64 @@ impl DateRangePatternSelectionData {
         Ok(Self {
             payload: DataPayloadOr::from_payload(payload),
         })
+    }
+
+    pub(crate) fn select<'a>(
+        &'a self,
+        input: &DateTimeInputUnchecked,
+        options: RawOptions,
+        diff: Difference,
+    ) -> Option<RangePatternInfoBorrowed<'a>> {
+        let payload = self.payload.get_option()?;
+        let year_style = options.year_style.unwrap_or_default();
+        let ambiguity = input
+            .year
+            .as_ref()
+            .map(|y| {
+                y.era()
+                    .map(|e| e.ambiguity)
+                    .unwrap_or(YearAmbiguity::EraRequired)
+            })
+            .unwrap_or(YearAmbiguity::EraAndCenturyRequired);
+
+        let variant = match (year_style, ambiguity) {
+            (YearStyle::WithEra, _) => PackedSkeletonVariant::Variant1,
+
+            (
+                YearStyle::Full,
+                YearAmbiguity::EraAndCenturyRequired | YearAmbiguity::EraRequired,
+            ) => PackedSkeletonVariant::Variant1,
+            (YearStyle::Full, YearAmbiguity::CenturyRequired | YearAmbiguity::Unambiguous) => {
+                PackedSkeletonVariant::Variant0
+            }
+
+            (
+                YearStyle::Auto | YearStyle::NoEra,
+                YearAmbiguity::Unambiguous | YearAmbiguity::EraRequired,
+            ) => PackedSkeletonVariant::Standard,
+
+            (YearStyle::Auto, YearAmbiguity::CenturyRequired) => PackedSkeletonVariant::Variant0,
+            (YearStyle::NoEra, YearAmbiguity::CenturyRequired) => {
+                debug_assert!(false, "unreachable");
+                PackedSkeletonVariant::Standard
+            }
+            (YearStyle::Auto | YearStyle::NoEra, _) => {
+                debug_assert!(false, "unreachable");
+                PackedSkeletonVariant::Standard
+            }
+        };
+
+        let ule = payload.get_element(options.length(), variant)?;
+
+        let field = match diff {
+            Difference::Era => DateGreatestDifferenceField::Era,
+            Difference::Year => DateGreatestDifferenceField::Year,
+            Difference::Month => DateGreatestDifferenceField::Month,
+            Difference::Day => DateGreatestDifferenceField::Day,
+            _ => return None,
+        };
+
+        ule.get_date_pattern(field)
     }
 }
 
@@ -438,7 +496,7 @@ impl<'a> TimePatternDataBorrowed<'a> {
 #[allow(dead_code)]
 pub(crate) struct TimeRangePatternSelectionData {
     /// The loaded time range patterns, or `None` if time range formatting is not supported.
-    payload: DataPayloadOr<ErasedPackedRangePatterns, ()>,
+    pub(crate) payload: DataPayloadOr<ErasedPackedRangePatterns, ()>,
 }
 
 #[cfg(feature = "unstable")]
@@ -491,6 +549,28 @@ impl TimeRangePatternSelectionData {
         Ok(Self {
             payload: DataPayloadOr::from_payload(payload),
         })
+    }
+
+    pub(crate) fn select<'a>(
+        &'a self,
+        input: &DateTimeInputUnchecked,
+        options: RawOptions,
+        diff: Difference,
+    ) -> Option<RangePatternInfoBorrowed<'a>> {
+        let payload = self.payload.get_option()?;
+        let time_precision = options.time_precision.unwrap_or_default();
+        let (variant, _) = input.resolve_time_precision(time_precision);
+        let ule = payload.get_element(options.length(), variant)?;
+
+        let field = match diff {
+            Difference::DayPeriodB => TimeGreatestDifferenceField::DayPeriodB,
+            Difference::DayPeriodA => TimeGreatestDifferenceField::DayPeriodA,
+            Difference::Hour => TimeGreatestDifferenceField::Hour,
+            Difference::Minute => TimeGreatestDifferenceField::Minute,
+            _ => return None,
+        };
+
+        ule.get_time_pattern(field)
     }
 }
 

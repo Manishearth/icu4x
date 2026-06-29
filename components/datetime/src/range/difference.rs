@@ -45,6 +45,16 @@ pub enum Difference {
     Mixed,
 }
 
+impl Difference {
+    /// Returns whether the difference is in a time field (minute, hour, or day period).
+    pub(crate) fn is_time_diff(self) -> bool {
+        matches!(
+            self,
+            Self::Minute | Self::Hour | Self::DayPeriodB | Self::DayPeriodA
+        )
+    }
+}
+
 /// Resolves the greatest difference between two datetimes.
 ///
 /// If `dayperiod_names` is provided, it will be used to resolve flexible day periods (`B`).

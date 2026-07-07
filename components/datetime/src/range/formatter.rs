@@ -7,9 +7,10 @@ use crate::DateTimeFormatterLoadError;
 use crate::DateTimeFormatterPreferences;
 use crate::FixedCalendarDateTimeFormatter;
 use crate::FormattedDateTime;
+#[cfg(feature = "compiled_data")]
+use crate::external_loaders::ExternalLoaderCompiledData;
 use crate::external_loaders::{
-    DecimalFormatterLoader, ExternalLoaderCompiledData, ExternalLoaderUnstable,
-    FormattableAnyCalendarLoader,
+    DecimalFormatterLoader, ExternalLoaderUnstable, FormattableAnyCalendarLoader,
 };
 use crate::fieldsets::enums::CompositeFieldSet;
 use crate::format::DateTimeInputUnchecked;

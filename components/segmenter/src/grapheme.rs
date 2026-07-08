@@ -35,6 +35,23 @@ pub(crate) enum GraphemeClusterBreakIteratorInner<'data, 's, Y: RuleBreakType> {
     Neo(crate::neo::RuleBreakIterator<'data, 's, Y, crate::neo::NoComplexHandler>),
 }
 
+impl<'data, 's, Y: RuleBreakType> Clone for GraphemeClusterBreakIteratorInner<'data, 's, Y> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Legacy(iter) => Self::Legacy(iter.clone()),
+            #[cfg(feature = "unstable")]
+            Self::Neo(iter) => Self::Neo(iter.clone()),
+        }
+    }
+}
+
+impl<'data, 's, Y: RuleBreakType> GraphemeClusterBreakIterator<'data, 's, Y> {
+    /// TODO(#8196): do we want to expose clone on this?
+    pub(crate) fn clone_internal(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 impl<Y: RuleBreakType> Iterator for GraphemeClusterBreakIterator<'_, '_, Y> {
     type Item = usize;
     #[inline]

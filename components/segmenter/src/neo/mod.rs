@@ -15,8 +15,8 @@ use smallvec::SmallVec;
 pub(crate) trait ComplexHandler<Y: RuleBreakType> {
     const BREAK_STATUS: u8;
     const BREAK_AT_BOUNDARIES: bool;
-    type Cache: smallvec::Array<Item = usize>;
-    type ComplexPayloads<'s>: core::fmt::Debug;
+    type Cache: smallvec::Array<Item = usize> + Clone;
+    type ComplexPayloads<'s>: core::fmt::Debug + Clone;
     type ComplexPayload<'s>: core::fmt::Debug;
 
     fn select<'data>(
@@ -132,6 +132,22 @@ pub(crate) struct RuleBreakIterator<'data, 's, Y: RuleBreakType, C: ComplexHandl
     remaining_input: Y::IterAttr<'s>,
     last_accepting_status: u8,
     complex: Option<C::ComplexPayloads<'data>>,
+}
+
+impl<'data, 's, Y: RuleBreakType, C: ComplexHandler<Y>> Clone
+    for RuleBreakIterator<'data, 's, Y, C>
+{
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data,
+            pseudo_symbol_map: self.pseudo_symbol_map,
+            cache: self.cache.clone(),
+            lookahead_positions: self.lookahead_positions.clone(),
+            remaining_input: self.remaining_input.clone(),
+            last_accepting_status: self.last_accepting_status,
+            complex: self.complex.clone(),
+        }
+    }
 }
 
 #[test]

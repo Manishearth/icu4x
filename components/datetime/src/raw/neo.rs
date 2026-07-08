@@ -192,43 +192,7 @@ impl DatePatternSelectionData {
         options: RawOptions,
     ) -> Option<DatePatternDataBorrowed<'_>> {
         let payload = self.payload.get_option()?;
-        let year_style = options.year_style.unwrap_or_default();
-        let ambiguity = input
-            .year
-            .as_ref()
-            .map(|y| {
-                y.era()
-                    .map(|e| e.ambiguity)
-                    .unwrap_or(YearAmbiguity::EraRequired)
-            })
-            .unwrap_or(YearAmbiguity::EraAndCenturyRequired);
-
-        let variant = match (year_style, ambiguity) {
-            (YearStyle::WithEra, _) => PackedSkeletonVariant::Variant1,
-
-            (
-                YearStyle::Full,
-                YearAmbiguity::EraAndCenturyRequired | YearAmbiguity::EraRequired,
-            ) => PackedSkeletonVariant::Variant1,
-            (YearStyle::Full, YearAmbiguity::CenturyRequired | YearAmbiguity::Unambiguous) => {
-                PackedSkeletonVariant::Variant0
-            }
-
-            (
-                YearStyle::Auto | YearStyle::NoEra,
-                YearAmbiguity::Unambiguous | YearAmbiguity::EraRequired,
-            ) => PackedSkeletonVariant::Standard,
-
-            (YearStyle::Auto, YearAmbiguity::CenturyRequired) => PackedSkeletonVariant::Variant0,
-            (YearStyle::Auto, YearAmbiguity::EraAndCenturyRequired) => {
-                PackedSkeletonVariant::Variant1
-            }
-
-            (
-                YearStyle::NoEra,
-                YearAmbiguity::CenturyRequired | YearAmbiguity::EraAndCenturyRequired,
-            ) => PackedSkeletonVariant::Variant0,
-        };
+        let variant = input.resolve_date_variant(options);
         Some(DatePatternDataBorrowed::Resolved(
             payload.get(options.length(), variant),
             options.alignment,
@@ -282,8 +246,25 @@ impl DateRangePatternSelectionData {
         diff: Difference,
     ) -> Option<RangePatternInfoBorrowed<'a>> {
         let payload = self.payload.get_option()?;
+        let variant = input.resolve_date_variant(options);
+        let ule = payload.get_element(options.length(), variant)?;
+
+        let field = match diff {
+            Difference::Era => DateGreatestDifferenceField::Era,
+            Difference::Year => DateGreatestDifferenceField::Year,
+            Difference::Month => DateGreatestDifferenceField::Month,
+            Difference::Day => DateGreatestDifferenceField::Day,
+            _ => return None,
+        };
+
+        ule.get_date_pattern(field)
+    }
+}
+
+impl DateTimeInputUnchecked {
+    fn resolve_date_variant(&self, options: RawOptions) -> PackedSkeletonVariant {
         let year_style = options.year_style.unwrap_or_default();
-        let ambiguity = input
+        let ambiguity = self
             .year
             .as_ref()
             .map(|y| {
@@ -293,7 +274,7 @@ impl DateRangePatternSelectionData {
             })
             .unwrap_or(YearAmbiguity::EraAndCenturyRequired);
 
-        let variant = match (year_style, ambiguity) {
+        match (year_style, ambiguity) {
             (YearStyle::WithEra, _) => PackedSkeletonVariant::Variant1,
 
             (
@@ -310,31 +291,17 @@ impl DateRangePatternSelectionData {
             ) => PackedSkeletonVariant::Standard,
 
             (YearStyle::Auto, YearAmbiguity::CenturyRequired) => PackedSkeletonVariant::Variant0,
-            (YearStyle::NoEra, YearAmbiguity::CenturyRequired) => {
-                debug_assert!(false, "unreachable");
-                PackedSkeletonVariant::Standard
+            (YearStyle::Auto, YearAmbiguity::EraAndCenturyRequired) => {
+                PackedSkeletonVariant::Variant1
             }
-            (YearStyle::Auto | YearStyle::NoEra, _) => {
-                debug_assert!(false, "unreachable");
-                PackedSkeletonVariant::Standard
-            }
-        };
 
-        let ule = payload.get_element(options.length(), variant)?;
-
-        let field = match diff {
-            Difference::Era => DateGreatestDifferenceField::Era,
-            Difference::Year => DateGreatestDifferenceField::Year,
-            Difference::Month => DateGreatestDifferenceField::Month,
-            Difference::Day => DateGreatestDifferenceField::Day,
-            _ => return None,
-        };
-
-        ule.get_date_pattern(field)
+            (
+                YearStyle::NoEra,
+                YearAmbiguity::CenturyRequired | YearAmbiguity::EraAndCenturyRequired,
+            ) => PackedSkeletonVariant::Variant0,
+        }
     }
-}
 
-impl DateTimeInputUnchecked {
     fn resolve_time_precision(
         &self,
         time_precision: TimePrecision,

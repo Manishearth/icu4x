@@ -50,7 +50,7 @@ macro_rules! tuple_ule {
                 if bytes.len() % ule_bytes != 0 {
                     return Err(UleError::length::<Self>(bytes.len()));
                 }
-                for chunk in bytes.chunks(ule_bytes) {
+                for chunk in bytes.chunks_exact(ule_bytes) {
                     let mut i = 0;
                     $(
                         let j = i;

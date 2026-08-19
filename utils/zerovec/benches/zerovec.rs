@@ -70,7 +70,18 @@ fn overview_bench(c: &mut Criterion) {
     {
         sum_benches(c);
         binary_search_benches(c);
+        validation_benches(c);
     }
+}
+
+fn validation_benches(c: &mut Criterion) {
+    let raw_u32_pairs: Vec<(u32, u32)> = (0..1000).map(|i| (i, i * 2)).collect();
+    let zv_tuple: ZeroVec<(u32, u32)> = ZeroVec::alloc_from_slice(&raw_u32_pairs);
+    let tuple_bytes = zv_tuple.as_bytes();
+
+    c.bench_function("zerovec/validate/tuple_u32_u32_1000", |b| {
+        b.iter(|| ZeroVec::<(u32, u32)>::parse_bytes(black_box(tuple_bytes)).unwrap());
+    });
 }
 
 fn sum_benches(c: &mut Criterion) {

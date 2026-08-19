@@ -142,7 +142,7 @@ unsafe impl<U: NicheBytes<N> + ULE, const N: usize> ULE for NichedOptionULE<U, N
         if bytes.len() % size != 0 {
             return Err(crate::ule::UleError::length::<Self>(bytes.len()));
         }
-        bytes.chunks(size).try_for_each(|chunk| {
+        bytes.chunks_exact(size).try_for_each(|chunk| {
             // Associated const cannot be referenced in a pattern
             // https://doc.rust-lang.org/error-index.html#E0158
             if chunk == <U as NicheBytes<N>>::NICHE_BIT_PATTERN {

@@ -78,7 +78,7 @@ unsafe impl<U: ULE> ULE for OptionULE<U> {
         if bytes.len() % size != 0 {
             return Err(UleError::length::<Self>(bytes.len()));
         }
-        for chunk in bytes.chunks(size) {
+        for chunk in bytes.chunks_exact(size) {
             #[expect(clippy::indexing_slicing)] // `chunk` will have enough bytes to fit Self
             match chunk[0] {
                 // https://doc.rust-lang.org/reference/types/boolean.html

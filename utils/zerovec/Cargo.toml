@@ -50,6 +50,7 @@ potential_utf = { path = "../../utils/potential_utf", features = ["zerovec"] }
 yoke = { workspace = true, features = ["derive"] }
 zerofrom = { path = "../../utils/zerofrom", features = ["derive"] }
 insta = { workspace = true, features = ["json"] }
+tinystr = { workspace = true, features = ["zerovec"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 criterion = { workspace = true }
@@ -93,6 +94,11 @@ harness = false
 name = "zeromap"
 harness = false
 required-features = ["serde", "hashmap", "derive"]
+
+[[bench]]
+name = "multi_validation"
+harness = false
+required-features = ["derive"]
 
 [[example]]
 name = "zv_serde"

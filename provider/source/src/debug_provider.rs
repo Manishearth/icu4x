@@ -51,3 +51,14 @@ where
         })
     }
 }
+
+/// A data provider that always returns `MarkerNotFound`.
+///
+/// Useful for verifying that `FixedCalendarDateTimeNames` already has all required data loaded.
+pub(crate) struct EmptyProvider;
+
+impl<M: DataMarker> DataProvider<M> for EmptyProvider {
+    fn load(&self, req: DataRequest) -> Result<DataResponse<M>, DataError> {
+        Err(DataErrorKind::MarkerNotFound.with_req(M::INFO, req))
+    }
+}

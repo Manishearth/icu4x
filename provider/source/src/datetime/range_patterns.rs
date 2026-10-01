@@ -12,13 +12,12 @@ use icu::datetime::provider::fields::{self, Field, components};
 use icu::datetime::provider::packed_pattern::{
     GenericPackedPatterns, GenericPackedPatternsBuilder,
 };
-use icu::datetime::provider::pattern::PatternItem;
-use icu::datetime::provider::pattern::reference;
 use icu::datetime::provider::pattern::runtime::{GenericPattern, Pattern};
+use icu::datetime::provider::pattern::{PatternItem, reference};
 use icu::datetime::provider::range_patterns::*;
 use icu::datetime::provider::semantic_skeletons::GluePattern;
 use icu::datetime::provider::skeleton::{
-    find_best_skeleton, is_bad_match_for_single_field, reference::Skeleton,
+    adjust_range_patterns, find_best_skeleton, is_bad_match_for_single_field, reference::Skeleton,
 };
 use icu_locale_core::preferences::extensions::unicode::keywords::HourCycle;
 use icu_pattern::{DoublePlaceholderPattern, PatternItem as ParserPatternItem};
@@ -58,12 +57,10 @@ impl<'a> PackedPatternItem for PatternsByGreatestDifference<'a> {
     ) -> Self {
         let matched = match_range_skeleton(context, fields);
         // Fall back to placeholder PGD that triggers fallback to glue pattern in runtime
-        matched
-            .map(|(_, pgd)| pgd.clone())
-            .unwrap_or(PatternsByGreatestDifference {
-                header: GreatestDifferenceHeader::new(0),
-                patterns: zerovec::VarZeroVec::new(),
-            })
+        matched.unwrap_or(PatternsByGreatestDifference {
+            header: GreatestDifferenceHeader::new(0),
+            patterns: zerovec::VarZeroVec::new(),
+        })
     }
 
     fn finalize_item(self) -> Self::FinalItem {
@@ -100,28 +97,82 @@ impl<'a> PackedPatternItem for PatternsByGreatestDifference<'a> {
         calendar: Option<DatagenCalendar>,
         attributes: &DataMarkerAttributes,
     ) {
+        use crate::debug_provider::EmptyProvider;
         use icu::datetime::pattern::{DateTimePattern, PatternLoadError};
-        use icu::datetime::provider::fields::Field;
+        use icu::datetime::provider::fields::{Field, FieldSymbol, TextOrNumeric};
 
-        for pattern in self.patterns.iter() {
-            let runtime_pattern = Pattern::zero_from(pattern);
-            let dt_pattern = DateTimePattern::from(runtime_pattern);
-            if let Err(e) = names.load_for_pattern(&DebugProvider, &dt_pattern)
-                && let PatternLoadError::ConflictingField {
-                    field: requested_field,
-                    previous_field,
-                } = e
+        let mut patterns: Vec<Pattern<'static>> = self
+            .patterns
+            .iter()
+            .map(|p| Pattern::from(reference::Pattern::from(&Pattern::zero_from(p)).into_items()))
+            .collect();
+
+        for pattern in patterns.iter_mut() {
+            while let Err(e) =
+                names.load_for_pattern(&EmptyProvider, &DateTimePattern::from(pattern.clone()))
             {
-                let requested_field = Field::from(requested_field);
-                let previous_field = Field::from(previous_field);
-                let attributes = attributes.as_str();
-                let calendar = calendar.map(|c| c.cldr_name()).unwrap_or("generic");
-                log::warn!(
-                    "{calendar}/{locale}/{attributes}: conflicting field in range pattern: {previous_field} <=> {field}",
-                    field = requested_field
-                );
+                match e {
+                    PatternLoadError::ConflictingField {
+                        field: requested_field,
+                        previous_field,
+                    } => {
+                        let requested_field = Field::from(requested_field);
+                        let previous_field = Field::from(previous_field);
+                        let attributes = attributes.as_str();
+                        let calendar = calendar.map(|c| c.cldr_name()).unwrap_or("generic");
+                        log::warn!(
+                            "{calendar}/{locale}/{attributes}: conflicting field in range pattern: {previous_field} <=> {field}",
+                            field = requested_field
+                        );
+                        if requested_field.get_length_type() == previous_field.get_length_type() {
+                            let mut pattern_items =
+                                reference::Pattern::from(&*pattern).into_items();
+                            for pattern_item in pattern_items.iter_mut() {
+                                let PatternItem::Field(field) = pattern_item else {
+                                    continue;
+                                };
+                                if *field == requested_field {
+                                    if matches!(
+                                        field.symbol,
+                                        FieldSymbol::Month(_) | FieldSymbol::Weekday(_)
+                                    ) {
+                                        field.symbol = previous_field.symbol;
+                                    }
+                                    if requested_field.get_length_type() == TextOrNumeric::Text {
+                                        field.length = previous_field.length;
+                                    }
+                                }
+                            }
+                            *pattern = Pattern::from(pattern_items);
+                        } else {
+                            // Text vs Numeric conflict (e.g. MMM vs M): cannot safely rewrite
+                            // without corrupting surrounding literals, so drop range patterns
+                            // and fall back to the glue pattern at runtime.
+                            self.header = GreatestDifferenceHeader::new(0);
+                            self.patterns = zerovec::VarZeroVec::new();
+                            return;
+                        }
+                    }
+                    PatternLoadError::Data(_, requested_field)
+                    | PatternLoadError::UnsupportedLength(requested_field) => {
+                        let requested_field = Field::from(requested_field);
+                        let attributes = attributes.as_str();
+                        let calendar = calendar.map(|c| c.cldr_name()).unwrap_or("generic");
+                        log::warn!(
+                            "{calendar}/{locale}/{attributes}: unloaded field in range pattern: {requested_field}"
+                        );
+                        self.header = GreatestDifferenceHeader::new(0);
+                        self.patterns = zerovec::VarZeroVec::new();
+                        return;
+                    }
+                    other => {
+                        panic!("Unexpected error loading range pattern: {other:?}");
+                    }
+                }
             }
         }
+
+        self.patterns = zerovec::VarZeroVec::from(patterns.as_slice());
     }
 }
 
@@ -333,12 +384,16 @@ fn parse_interval_patterns(
     (date_map, time_map)
 }
 
-/// Finds the best matching range skeleton for a given list of fields.
-fn match_range_skeleton<'a, 'data>(
-    skeletons: &'a BTreeMap<Skeleton, PatternsByGreatestDifference<'data>>,
+/// Finds the best matching range skeleton for a given list of fields and adjusts field lengths.
+fn match_range_skeleton<'data>(
+    skeletons: &BTreeMap<Skeleton, PatternsByGreatestDifference<'data>>,
     fields: &[Field],
-) -> Option<(&'a Skeleton, &'a PatternsByGreatestDifference<'data>)> {
+) -> Option<PatternsByGreatestDifference<'data>> {
     let matched = find_best_skeleton(skeletons, fields)?;
+
+    if matched.missing_fields == fields.len() {
+        return None;
+    }
 
     // A single field was requested and the best pattern either includes extra fields
     // or can't be adjusted to match (e.g. text vs numeric). We reject the match
@@ -349,7 +404,7 @@ fn match_range_skeleton<'a, 'data>(
         return None;
     }
 
-    Some((matched.skeleton, matched.value))
+    Some(adjust_range_patterns(matched, fields))
 }
 
 impl SourceDataProvider {
@@ -374,15 +429,48 @@ impl SourceDataProvider {
         };
 
         let skeletons_coerced: BTreeMap<Skeleton, PatternsByGreatestDifference<'data>> = skeletons;
+        let to_components_bag =
+            |length, attributes: &DataMarkerAttributes, data: &cldr_serde::ca::Dates| {
+                match components_type {
+                    ComponentsType::Time => gen_time_components(length, attributes, data),
+                    ComponentsType::Date => gen_date_components(length, attributes, data),
+                }
+            };
+        let single_patterns =
+            self.make_single_skeleton_data(locale, calendar, attributes, to_components_bag)?;
+        let single_builder = single_patterns.to_builder();
+        let single_v1_lms = single_builder
+            .variant1
+            .as_ref()
+            .unwrap_or(&single_builder.standard);
 
         let packed_data = self.make_packed_skeleton_data::<PatternsByGreatestDifference<'data>>(
             locale,
             calendar,
             attributes,
             |_data| skeletons_coerced,
-            |length, attributes, data| match components_type {
-                ComponentsType::Time => gen_time_components(length, attributes, data),
-                ComponentsType::Date => gen_date_components(length, attributes, data),
+            to_components_bag,
+            |length| {
+                use icu::datetime::options::Length;
+                use icu::datetime::pattern::{DateTimePattern, FixedCalendarDateTimeNames};
+                let mut names = FixedCalendarDateTimeNames::<()>::new_without_number_formatting(
+                    Default::default(),
+                );
+                let single_v1_plural = match length {
+                    Length::Long => &single_v1_lms.long,
+                    Length::Medium => &single_v1_lms.medium,
+                    Length::Short => &single_v1_lms.short,
+                    _ => unreachable!(),
+                };
+                let single_pat = single_v1_plural
+                    .clone()
+                    .try_into_other()
+                    .expect("other pattern must exist");
+                let dt_pat = DateTimePattern::from(single_pat);
+                names
+                    .load_for_pattern(&DebugProvider, &dt_pat)
+                    .expect("single pattern must load without conflict");
+                names
             },
         )?;
 

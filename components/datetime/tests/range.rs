@@ -388,20 +388,20 @@ fn test_date_range_ej() {
 //    will be incorrect, and, importantly, not consistent with the results of regular date
 //    formatting, which can be confusing.
 
-/// Chinese (zh) with `YMD::medium()`:
-/// Single date pattern is "y年M月d日" (numeric month 'M').
-/// Single `DateTimeFormatter` only loads numeric month data, not abbreviated month names ("MMM").
-/// But range pattern falls back to `root` (`und`), which specifies "y MMM d–d".
-/// When executing the `root` pattern, `FormattedSingleSide` fails with `NamesNotLoaded`.
-#[cfg(debug_assertions)]
+/// Chinese (zh) with `YMD::medium()`, `YMD::long()`, and `YMD::short()`:
+/// Single date pattern for `medium` and `long` is "y年M月d日" (numeric month 'M').
+/// CLDR `zh` specifies `"yMMMd": "y年MMMd日–d日"` in `intervalFormats` (abbreviated month `MMM`),
+/// which conflicts with numeric month `M` in the single pattern (`"yMMMd": "y年M月d日"`).
+/// Datagen drops the conflicting range pattern so runtime falls back to the glue pattern,
+/// while `YMD::short()` uses the compatible `yMd` range pattern (`"y/M/d – y/M/d"`).
 #[test]
-#[should_panic(expected = "unexpected error in FormattedSingleSide: NamesNotLoaded")]
-fn test_root_fallback_names_not_loaded_zh() {
+fn test_range_names_consistency_zh() {
     use icu_calendar::Date;
     use icu_datetime::fieldsets;
     use icu_datetime::input::{DateTime, Time};
     use icu_datetime::range::DateRangeFormatter;
     use icu_locale_core::locale;
+    use writeable::assert_writeable_eq;
 
     let start = DateTime {
         date: Date::try_new_gregorian(2023, 12, 22).unwrap(),
@@ -412,23 +412,39 @@ fn test_root_fallback_names_not_loaded_zh() {
         time: Time::try_new(17, 0, 0, 0).unwrap(),
     };
 
-    let fmt_zh =
+    let fmt_zh_medium =
         DateRangeFormatter::try_new(locale!("zh").into(), fieldsets::YMD::medium()).unwrap();
-    let _ = fmt_zh.format(&start, &end_day).to_string();
+    assert_writeable_eq!(
+        fmt_zh_medium.format(&start, &end_day),
+        "2023年12月22日 – 2023年12月23日"
+    );
+
+    let fmt_zh_long =
+        DateRangeFormatter::try_new(locale!("zh").into(), fieldsets::YMD::long()).unwrap();
+    assert_writeable_eq!(
+        fmt_zh_long.format(&start, &end_day),
+        "2023年12月22日 – 2023年12月23日"
+    );
+
+    let fmt_zh_short =
+        DateRangeFormatter::try_new(locale!("zh").into(), fieldsets::YMD::short()).unwrap();
+    assert_writeable_eq!(
+        fmt_zh_short.format(&start, &end_day),
+        "2023/12/22 – 2023/12/23"
+    );
 }
 
 /// Spanish with Hebrew calendar (es-u-ca-hebrew) and `YMD::long()`:
-/// Single `DateTimeFormatter` for `YMD::long()` loads full month names ("MMMM"), but range pattern
-/// falls back to `root` (`und`), which uses abbreviated month names ("MMM").
-#[cfg(debug_assertions)]
+/// Single `DateTimeFormatter` for `YMD::long()` loads full month names ("MMMM"), and the
+/// matched `yMMMd` range pattern is adjusted from "MMM" to "MMMM" during datagen.
 #[test]
-#[should_panic(expected = "unexpected error in FormattedSingleSide: NamesNotLoaded")]
-fn test_root_fallback_names_not_loaded_es_hebrew() {
+fn test_range_names_consistency_es_hebrew() {
     use icu_calendar::Date;
     use icu_datetime::fieldsets;
     use icu_datetime::input::{DateTime, Time};
     use icu_datetime::range::DateRangeFormatter;
     use icu_locale_core::locale;
+    use writeable::assert_writeable_eq;
 
     let start = DateTime {
         date: Date::try_new_gregorian(2023, 12, 22).unwrap(),
@@ -442,21 +458,23 @@ fn test_root_fallback_names_not_loaded_es_hebrew() {
     let fmt_es_hebrew =
         DateRangeFormatter::try_new(locale!("es-u-ca-hebrew").into(), fieldsets::YMD::long())
             .unwrap();
-    let _ = fmt_es_hebrew.format(&start, &end_day).to_string();
+    assert_writeable_eq!(
+        fmt_es_hebrew.format(&start, &end_day),
+        "10–11 de tevet de 5784 AM"
+    );
 }
 
 /// German with Buddhist calendar (de-u-ca-buddhist) and `YMD::long()`:
-/// Single `DateTimeFormatter` for `YMD::long()` loads full month names ("MMMM"), but range pattern
-/// falls back to `root` (`und`), which uses abbreviated month names ("MMM").
-#[cfg(debug_assertions)]
+/// Single `DateTimeFormatter` for `YMD::long()` loads full month names ("MMMM"), and the
+/// range pattern's month width is adjusted from "MMM" to "MMMM" during datagen.
 #[test]
-#[should_panic(expected = "unexpected error in FormattedSingleSide: NamesNotLoaded")]
-fn test_root_fallback_names_not_loaded_de_buddhist() {
+fn test_range_names_consistency_de_buddhist() {
     use icu_calendar::Date;
     use icu_datetime::fieldsets;
     use icu_datetime::input::{DateTime, Time};
     use icu_datetime::range::DateRangeFormatter;
     use icu_locale_core::locale;
+    use writeable::assert_writeable_eq;
 
     let start = DateTime {
         date: Date::try_new_gregorian(2023, 12, 22).unwrap(),
@@ -470,7 +488,59 @@ fn test_root_fallback_names_not_loaded_de_buddhist() {
     let fmt_de_buddhist =
         DateRangeFormatter::try_new(locale!("de-u-ca-buddhist").into(), fieldsets::YMD::long())
             .unwrap();
-    let _ = fmt_de_buddhist.format(&start, &end_day).to_string();
+    assert_writeable_eq!(
+        fmt_de_buddhist.format(&start, &end_day),
+        "BE 2566 Dezember 22–23"
+    );
+}
+
+/// Regression test for <https://github.com/unicode-org/icu4x/issues/8533>:
+/// Verifies that `Long` month-containing fieldsets (`YMD::long()`, `MD::long()`, `YM::long()`,
+/// `M::long()`, `YMDE::long()`, `MDE::long()`) adjust range pattern month widths to `MMMM`
+/// and normalize standalone vs format symbols (`L` vs `M`, `LLL–LLLL` in `fi`).
+#[test]
+fn test_date_range_long_month_widths() {
+    let start = Date::try_new_gregorian(2023, 12, 22).unwrap();
+    let end_next_day = Date::try_new_gregorian(2023, 12, 23).unwrap();
+    let end_prev_month = Date::try_new_gregorian(2023, 11, 22).unwrap();
+
+    let fmt_en_ymd =
+        DateRangeFormatter::try_new(locale!("en").into(), fieldsets::YMD::long()).unwrap();
+    assert_writeable_eq!(
+        fmt_en_ymd.format(&start, &end_next_day),
+        "December 22\u{2009}–\u{2009}23, 2023"
+    );
+    assert_writeable_eq!(
+        fmt_en_ymd.format(&end_prev_month, &start),
+        "November 22\u{2009}–\u{2009}December 22, 2023"
+    );
+
+    let fmt_en_md =
+        DateRangeFormatter::try_new(locale!("en").into(), fieldsets::MD::long()).unwrap();
+    assert_writeable_eq!(
+        fmt_en_md.format(&start, &end_next_day),
+        "December 22\u{2009}–\u{2009}23"
+    );
+
+    let fmt_en_ym =
+        DateRangeFormatter::try_new(locale!("en").into(), fieldsets::YM::long()).unwrap();
+    assert_writeable_eq!(
+        fmt_en_ym.format(&end_prev_month, &start),
+        "November\u{2009}–\u{2009}December 2023"
+    );
+
+    let fmt_en_m = DateRangeFormatter::try_new(locale!("en").into(), fieldsets::M::long()).unwrap();
+    assert_writeable_eq!(
+        fmt_en_m.format(&end_prev_month, &start),
+        "November\u{2009}–\u{2009}December"
+    );
+
+    let fmt_fi_ym =
+        DateRangeFormatter::try_new(locale!("fi").into(), fieldsets::YM::long()).unwrap();
+    assert_writeable_eq!(
+        fmt_fi_ym.format(&end_prev_month, &start),
+        "marraskuu–joulukuu 2023"
+    );
 }
 
 #[test]

@@ -389,6 +389,63 @@ fn adjust_pattern_field_lengths(fields: &[Field], pattern: &mut runtime::Pattern
     })
 }
 
+/// Adjusts the field lengths of all patterns in a matched [`PatternsByGreatestDifference`](crate::provider::range_patterns::PatternsByGreatestDifference).
+///
+/// <div class="stab unstable">
+/// 🚧 This code is considered unstable; it may change at any time, in breaking or non-breaking ways,
+/// including in SemVer minor releases. While the serde representation of data structs is guaranteed
+/// to be stable, their Rust representation might not be. Use with caution.
+/// </div>
+pub fn adjust_range_patterns<'data>(
+    matched: SkeletonMatch<
+        '_,
+        crate::provider::range_patterns::PatternsByGreatestDifference<'data>,
+    >,
+    fields: &[Field],
+) -> crate::provider::range_patterns::PatternsByGreatestDifference<'data> {
+    if matched.distance == NO_DISTANCE {
+        return matched.value.clone();
+    }
+    // Only adjust fields whose requested length differs from the matched skeleton's length.
+    // For example, CLDR time skeletons use single `m` / `s` / `H` in the skeleton key while
+    // the pattern uses two-digit `mm` / `ss` / `HH`; those should not be shrunk to length 1
+    // when another field in the skeleton (such as `EEEE` vs `E`) caused `distance > 0`.
+    let adjusted_fields: Vec<Field> = fields
+        .iter()
+        .copied()
+        .filter(|requested_field| {
+            matched
+                .skeleton
+                .fields_iter()
+                .find(|skeleton_field| {
+                    skeleton_field
+                        .symbol
+                        .skeleton_cmp(requested_field.symbol)
+                        .is_eq()
+                })
+                .is_some_and(|skeleton_field| skeleton_field.length != requested_field.length)
+        })
+        .collect();
+    if adjusted_fields.is_empty() {
+        return matched.value.clone();
+    }
+    use icu_provider::prelude::zerofrom::ZeroFrom;
+    let patterns: Vec<runtime::Pattern<'static>> = matched
+        .value
+        .patterns
+        .iter()
+        .map(|pat_ule| {
+            let mut pat = runtime::Pattern::zero_from(pat_ule).into_owned();
+            adjust_pattern_field_lengths(&adjusted_fields, &mut pat);
+            pat
+        })
+        .collect();
+    crate::provider::range_patterns::PatternsByGreatestDifference {
+        header: matched.value.header,
+        patterns: zerovec::VarZeroVec::from(patterns.as_slice()),
+    }
+}
+
 /// Alters given Pattern so that it will have a fractional second field if it was requested.
 ///
 /// If the requested skeleton included both seconds and fractional seconds and the dateFormatItem

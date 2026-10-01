@@ -178,11 +178,20 @@ impl DatePatternSelectionData {
         options: RawOptions,
     ) -> Option<impl Iterator<Item = PatternItem> + '_> {
         let payload = self.payload.get_option()?;
+        let items_standard = payload
+            .get(options.length(), PackedSkeletonVariant::Standard)
+            .items;
+        let items_variant0 = payload
+            .get(options.length(), PackedSkeletonVariant::Variant0)
+            .items;
+        let items_variant1 = payload
+            .get(options.length(), PackedSkeletonVariant::Variant1)
+            .items;
         Some(
-            payload
-                .get(options.length(), PackedSkeletonVariant::Variant1)
-                .items
-                .iter(),
+            items_variant1
+                .iter()
+                .chain(items_variant0.iter())
+                .chain(items_standard.iter()),
         )
     }
 
@@ -431,11 +440,20 @@ impl TimePatternSelectionData {
         options: RawOptions,
     ) -> Option<impl Iterator<Item = PatternItem> + '_> {
         let payload = self.payload.get_option()?;
+        let items_standard = payload
+            .get(options.length(), PackedSkeletonVariant::Standard)
+            .items;
+        let items_variant0 = payload
+            .get(options.length(), PackedSkeletonVariant::Variant0)
+            .items;
+        let items_variant1 = payload
+            .get(options.length(), PackedSkeletonVariant::Variant1)
+            .items;
         Some(
-            payload
-                .get(options.length(), PackedSkeletonVariant::Variant1)
-                .items
-                .iter(),
+            items_variant1
+                .iter()
+                .chain(items_variant0.iter())
+                .chain(items_standard.iter()),
         )
     }
 

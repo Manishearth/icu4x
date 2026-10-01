@@ -638,7 +638,7 @@ size_test!(
 #[derive(Debug, Clone)]
 pub struct FixedCalendarDateTimeNames<C, FSet: DateTimeNamesMarker = CompositeDateTimeFieldSet> {
     prefs: DateTimeFormatterPreferences,
-    inner: RawDateTimeNames<FSet>,
+    pub(crate) inner: RawDateTimeNames<FSet>,
     metadata: DateTimeNamesMetadata,
     _calendar: PhantomData<C>,
 }
@@ -807,6 +807,75 @@ impl<'l> RawDateTimeNamesBorrowed<'l> {
     #[allow(dead_code)]
     pub(crate) fn dayperiod_names(&self) -> Option<&'l DayPeriodNames<'l>> {
         self.dayperiod_names.get_any()
+    }
+
+    /// Resolves a pattern [`Field`](fields::Field) to match the loaded symbol/width in `self`
+    /// when both have the same length type (text vs. numeric), allowing range formatting
+    /// to fall back to the loaded symbols of the single pattern.
+    #[cfg(feature = "unstable")]
+    pub(crate) fn resolve_field_with_loaded_names(&self, field: fields::Field) -> fields::Field {
+        match field.symbol {
+            FieldSymbol::Month(field_symbol) => {
+                let OptionalNames::SingleLength { variables, .. } = self.month_names else {
+                    return field;
+                };
+                let Some(requested) = MonthNameLength::from_field(field_symbol, field.length)
+                else {
+                    return field;
+                };
+                let is_numeric = |m| {
+                    matches!(
+                        m,
+                        MonthNameLength::Numeric | MonthNameLength::StandaloneNumeric
+                    )
+                };
+                match (is_numeric(requested), is_numeric(variables)) {
+                    (true, true) => fields::Field {
+                        symbol: variables.to_approximate_error_field().0.symbol,
+                        length: field.length,
+                    },
+                    (false, false) => variables.to_approximate_error_field().0,
+                    _ => field,
+                }
+            }
+            FieldSymbol::Weekday(field_symbol) => {
+                let OptionalNames::SingleLength { variables, .. } = self.weekday_names else {
+                    return field;
+                };
+                if WeekdayNameLength::from_field(field_symbol, field.length).is_some() {
+                    variables.to_approximate_error_field().0
+                } else {
+                    field
+                }
+            }
+            FieldSymbol::Era | FieldSymbol::Year(fields::Year::Cyclic) => {
+                let OptionalNames::SingleLength { variables, .. } = self.year_names else {
+                    return field;
+                };
+                if YearNameLength::from_field_length(field.length).is_some() {
+                    fields::Field {
+                        symbol: field.symbol,
+                        length: variables.to_approximate_error_field().0.length,
+                    }
+                } else {
+                    field
+                }
+            }
+            FieldSymbol::DayPeriod(field_symbol) => {
+                let OptionalNames::SingleLength { variables, .. } = self.dayperiod_names else {
+                    return field;
+                };
+                if DayPeriodNameLength::from_field(field_symbol, field.length).is_some() {
+                    fields::Field {
+                        symbol: field.symbol,
+                        length: variables.to_approximate_error_field().0.length,
+                    }
+                } else {
+                    field
+                }
+            }
+            _ => field,
+        }
     }
 }
 

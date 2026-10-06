@@ -2,7 +2,9 @@
 // called LICENSE at the top level of the ICU4X source tree
 // (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
 
-use super::semantic_skeletons::{gen_date_components, gen_time_components};
+use super::semantic_skeletons::{
+    PatternsWithDistance, SemanticSkeletonsContext, gen_date_components, gen_time_components,
+};
 use super::{DatagenCalendar, PackedPatternItem};
 use crate::source::source_issue;
 use crate::{
@@ -21,6 +23,7 @@ use icu::datetime::provider::semantic_skeletons::GluePattern;
 use icu::datetime::provider::skeleton::{
     find_best_skeleton, is_bad_match_for_single_field, reference::Skeleton,
 };
+use icu::locale::fallback::LocaleFallbacker;
 use icu_locale_core::preferences::extensions::unicode::keywords::HourCycle;
 use icu_pattern::{DoublePlaceholderPattern, PatternItem as ParserPatternItem};
 use icu_provider::prelude::*;
@@ -37,8 +40,17 @@ pub(crate) enum ComponentsType {
     Date,
 }
 
+pub(crate) struct RangeSkeletonsContext<'a> {
+    skeletons: BTreeMap<Skeleton, PatternsByGreatestDifference<'a>>,
+    single_context: SemanticSkeletonsContext<'a>,
+    ancestors: Vec<(
+        BTreeMap<Skeleton, PatternsByGreatestDifference<'a>>,
+        SemanticSkeletonsContext<'a>,
+    )>,
+}
+
 impl<'a> PackedPatternItem for PatternsByGreatestDifference<'a> {
-    type MatchFieldsContext = BTreeMap<Skeleton, PatternsByGreatestDifference<'a>>;
+    type MatchFieldsContext = RangeSkeletonsContext<'a>;
     type FinalItem = PatternsByGreatestDifference<'a>;
     type BuilderItem<'b>
         = PatternsByGreatestDifference<'b>
@@ -53,11 +65,43 @@ impl<'a> PackedPatternItem for PatternsByGreatestDifference<'a> {
 
     fn match_fields(
         context: &Self::MatchFieldsContext,
-        _components_bag: &components::Bag,
-        _hour_cycle: HourCycle,
+        components_bag: &components::Bag,
+        hour_cycle: HourCycle,
         fields: &[Field],
     ) -> Self {
-        let matched = match_range_skeleton(context, fields);
+        let matched = match_range_skeleton(&context.skeletons, fields).filter(|(skel, pgd)| {
+            // Find the highest ancestor in the fallback chain from which this range
+            // pattern was inherited unchanged.
+            let mut origin_single_context = None;
+            for (ancestor_skeletons, ancestor_single_context) in &context.ancestors {
+                if ancestor_skeletons.get(skel) == Some(pgd) {
+                    origin_single_context = Some(ancestor_single_context);
+                } else {
+                    break;
+                }
+            }
+            // If the range pattern was inherited from an ancestor, only keep it if the
+            // single pattern for these components was not overridden along the way.
+            if let Some(origin_single_context) = origin_single_context {
+                let single_here = PatternsWithDistance::match_fields(
+                    &context.single_context,
+                    components_bag,
+                    hour_cycle,
+                    fields,
+                )
+                .into_inner();
+                let single_at_origin = PatternsWithDistance::match_fields(
+                    origin_single_context,
+                    components_bag,
+                    hour_cycle,
+                    fields,
+                )
+                .into_inner();
+                single_here == single_at_origin
+            } else {
+                true
+            }
+        });
         // Fall back to placeholder PGD that triggers fallback to glue pattern in runtime
         matched
             .map(|(_, pgd)| pgd.clone())
@@ -365,27 +409,67 @@ impl SourceDataProvider {
         attributes: &DataMarkerAttributes,
         components_type: ComponentsType,
     ) -> Result<PackedRangePatterns<'static>, DataError> {
-        let data = self.get_dates_resource(locale, calendar)?;
-        let (date_range_patterns, time_range_patterns) =
-            parse_interval_patterns(data.datetime_formats.interval_formats.as_ref());
-        let skeletons = if components_type == ComponentsType::Time {
-            time_range_patterns
-        } else {
-            date_range_patterns
+        let parse_skeletons = |data: &'data cldr_serde::ca::Dates| {
+            let (date_range_patterns, time_range_patterns) =
+                parse_interval_patterns(data.datetime_formats.interval_formats.as_ref());
+            if components_type == ComponentsType::Time {
+                time_range_patterns
+            } else {
+                date_range_patterns
+            }
         };
 
-        let skeletons_coerced: BTreeMap<Skeleton, PatternsByGreatestDifference<'data>> = skeletons;
+        let data = self.get_dates_resource(locale, calendar)?;
+        let skeletons = parse_skeletons(data);
+        let single_context = SemanticSkeletonsContext::new(self, data);
+
+        let fallbacker = LocaleFallbacker::try_new_unstable(self)?;
+        let fallbacker = fallbacker.for_config(DatetimePatternsRangeTimeV1::INFO.fallback_config);
+        let mut ancestors = Vec::new();
+        let mut parent_locale = None;
+        let mut fallback_iterator = fallbacker.fallback_for(*locale);
+        while !fallback_iterator.get().is_unknown() {
+            fallback_iterator.step();
+            if let Ok(parent_data) = self.get_dates_resource(fallback_iterator.get(), calendar) {
+                if parent_locale.is_none() {
+                    parent_locale = Some(*fallback_iterator.get());
+                }
+                let parent_skeletons = parse_skeletons(parent_data);
+                let parent_single_context = SemanticSkeletonsContext::new(self, parent_data);
+                ancestors.push((parent_skeletons, parent_single_context));
+            }
+        }
+
+        let context = RangeSkeletonsContext {
+            skeletons,
+            single_context,
+            ancestors,
+        };
 
         let packed_data = self.make_packed_skeleton_data::<PatternsByGreatestDifference<'data>>(
             locale,
             calendar,
             attributes,
-            |_data| skeletons_coerced,
+            |_data| context,
             |length, attributes, data| match components_type {
                 ComponentsType::Time => gen_time_components(length, attributes, data),
                 ComponentsType::Date => gen_date_components(length, attributes, data),
             },
         )?;
+
+        // If all range patterns in this payload are empty, fall back to the parent locale's
+        // payload so that datagen deduplicates this entry to its ancestor (and runtime
+        // detects the resolved locale mismatch against the single pattern).
+        if packed_data.elements.iter().all(|e| e.header.0 == 0)
+            && let Some(parent_locale) = parent_locale
+        {
+            return self.make_packed_range_data(
+                &parent_locale,
+                calendar,
+                attributes,
+                components_type,
+            );
+        }
 
         Ok(packed_data)
     }

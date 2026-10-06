@@ -451,19 +451,55 @@ size_test!(YearNames, year_names_v1_size, 32);
 #[derive(Debug, PartialEq, Clone, yoke::Yokeable, zerofrom::ZeroFrom)]
 #[cfg_attr(feature = "datagen", derive(databake::Bake))]
 #[cfg_attr(feature = "datagen", databake(path = icu_datetime::provider::names))]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[yoke(prove_covariance_manually)]
 pub enum YearNames<'data> {
     /// This calendar has a small, fixed set of eras.
     ///
     /// See [`era_index`](icu_calendar::types::EraYear::era_index) for how this is keyed.
-    FixedEras(#[cfg_attr(feature = "serde", serde(borrow))] VarZeroVec<'data, str>),
+    FixedEras(VarZeroVec<'data, str>),
     /// This calendar has a variable set of eras with numeric years, this stores the era names mapped from
     /// era code to the name.
     #[cfg(feature = "serde")]
-    VariableEras(#[cfg_attr(feature = "serde", serde(borrow))] YearNamesMap<'data>),
+    VariableEras(YearNamesMap<'data>),
     /// This calendar is cyclic (Chinese, Dangi), so it uses cyclic year names without any eras
-    Cyclic(#[cfg_attr(feature = "serde", serde(borrow))] VarZeroVec<'data, str>),
+    Cyclic(VarZeroVec<'data, str>),
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for YearNames<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        enum Raw<'data> {
+            FixedEras(#[serde(borrow)] VarZeroVec<'data, str>),
+            VariableEras(#[serde(borrow)] YearNamesMap<'data>),
+            Cyclic(#[serde(borrow)] VarZeroVec<'data, str>),
+        }
+
+        match Raw::deserialize(deserializer)? {
+            Raw::FixedEras(e) => Ok(Self::FixedEras(e)),
+            #[cfg(feature = "datagen")]
+            Raw::VariableEras(map)
+                if map.a().len() == 7
+                    && map.a().iter().eq([
+                        PotentialUtf8::from_str("bce"),
+                        PotentialUtf8::from_str("ce"),
+                        PotentialUtf8::from_str("heisei"),
+                        PotentialUtf8::from_str("meiji"),
+                        PotentialUtf8::from_str("reiwa"),
+                        PotentialUtf8::from_str("showa"),
+                        PotentialUtf8::from_str("taisho"),
+                    ]) =>
+            {
+                let eras = [0, 1, 3, 6, 5, 2, 4].map(|i| map.b().get(i).unwrap_or_default());
+                Ok(Self::FixedEras(VarZeroVec::from(&eras)))
+            }
+            Raw::VariableEras(e) => Ok(Self::VariableEras(e)),
+            Raw::Cyclic(c) => Ok(Self::Cyclic(c)),
+        }
+    }
 }
 
 #[cfg(feature = "serde")]
@@ -544,13 +580,12 @@ size_test!(MonthNames, month_names_v1_size, 32);
 #[derive(Debug, PartialEq, Clone, yoke::Yokeable, zerofrom::ZeroFrom)]
 #[cfg_attr(feature = "datagen", derive(databake::Bake))]
 #[cfg_attr(feature = "datagen", databake(path = icu_datetime::provider::names))]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[yoke(prove_covariance_manually)]
 pub enum MonthNames<'data> {
     /// Month codes M01, M02, M03, .. (can allow for M13 onwards)
     ///
     /// Found for solar and pure lunar calendars
-    Linear(#[cfg_attr(feature = "serde", serde(borrow))] VarZeroVec<'data, str>),
+    Linear(VarZeroVec<'data, str>),
 
     #[cfg(feature = "serde")]
     /// Month codes M01, M02, M03, .. M01L, M02L, ...
@@ -561,22 +596,13 @@ pub enum MonthNames<'data> {
     /// Found for lunisolar and lunisidereal calendars
     ///
     /// Not used anymore, but kept around for serde stabililty.
-    LeapLinear(#[cfg_attr(feature = "serde", serde(borrow))] VarZeroVec<'data, str>),
+    LeapLinear(VarZeroVec<'data, str>),
 
     /// This represents the formatting to apply to numeric values to produce the corresponding
     /// leap month symbol.
     ///
     /// For numeric formatting only, on calendars with leap months
-    LeapNumeric(
-        #[cfg_attr(
-            feature = "serde",
-            serde(
-                borrow,
-                deserialize_with = "icu_pattern::deserialize_borrowed_cow::<icu_pattern::SinglePlaceholder, _>"
-            )
-        )]
-        Cow<'data, SinglePlaceholderPattern>,
-    ),
+    LeapNumeric(Cow<'data, SinglePlaceholderPattern>),
 
     /// This represents the formatting to apply to numeric values to produce the corresponding
     /// leap month symbol.
@@ -585,10 +611,7 @@ pub enum MonthNames<'data> {
     /// associated `i8` is the offset to apply to the month number before interpolating it into the pattern.
     ///
     /// For numeric formatting only, on calendars with leap months.
-    LeapNumericWithBase(
-        #[cfg_attr(feature = "serde", serde(borrow))]
-        VarZeroVec<'data, VarTupleULE<i8, SinglePlaceholderPattern>>,
-    ),
+    LeapNumericWithBase(VarZeroVec<'data, VarTupleULE<i8, SinglePlaceholderPattern>>),
 
     /// Numeric only
     Numeric,
@@ -598,6 +621,122 @@ pub enum MonthNames<'data> {
     /// * N-2: `SinglePlaceholderPattern` for leap months
     /// * N-1: `SinglePlaceholderPattern` for leap base months
     LeapPattern(VarZeroVec<'data, str>),
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for MonthNames<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        enum Raw<'data> {
+            Linear(#[serde(borrow)] VarZeroVec<'data, str>),
+            LeapLinear(#[serde(borrow)] VarZeroVec<'data, str>),
+            LeapNumeric(
+                #[serde(
+                    borrow,
+                    deserialize_with = "icu_pattern::deserialize_borrowed_cow::<icu_pattern::SinglePlaceholder, _>"
+                )]
+                Cow<'data, SinglePlaceholderPattern>,
+            ),
+            LeapNumericWithBase(
+                #[serde(borrow)] VarZeroVec<'data, VarTupleULE<i8, SinglePlaceholderPattern>>,
+            ),
+            Numeric,
+            LeapPattern(#[serde(borrow)] VarZeroVec<'data, str>),
+        }
+
+        match Raw::deserialize(deserializer)? {
+            Raw::Linear(l) => Ok(Self::Linear(l)),
+            #[cfg(feature = "datagen")]
+            Raw::LeapLinear(l) if l.len() == 24 => {
+                use alloc::borrow::ToOwned;
+                use alloc::format;
+                use alloc::vec::Vec;
+
+                let m0 = l.get(0).unwrap_or_default();
+                let is_hebrew = (12..16).all(|i| l.get(i) == Some(""))
+                    && (18..24).all(|i| l.get(i) == Some(""));
+                let (leap_pattern, leap_base_pattern) = if is_hebrew {
+                    let m4 = l.get(4).unwrap_or_default();
+                    let m5 = l.get(5).unwrap_or_default();
+                    let m9 = l.get(9).unwrap_or_default();
+                    let m10 = l.get(10).unwrap_or_default();
+                    let m11 = l.get(11).unwrap_or_default();
+                    let adar_i = l.get(16).unwrap_or_default();
+                    let adar_ii = l.get(17).unwrap_or_default();
+
+                    if !m0.is_empty()
+                        && m9.starts_with(m0)
+                        && m10.starts_with(m0)
+                        && m11.starts_with(m0)
+                        && adar_i == format!("{m5}a")
+                        && adar_ii == format!("{m5}b")
+                    {
+                        (
+                            SinglePlaceholderPattern::try_from_str(adar_i, Default::default())
+                                .map_err(|_| serde::de::Error::custom("invalid pattern"))?
+                                .store
+                                .to_owned(),
+                            SinglePlaceholderPattern::try_from_str(adar_ii, Default::default())
+                                .map_err(|_| serde::de::Error::custom("invalid pattern"))?
+                                .store
+                                .to_owned(),
+                        )
+                    } else {
+                        (
+                            SinglePlaceholderPattern::try_from_str(
+                                &adar_i.replace(m4, "{0}"),
+                                Default::default(),
+                            )
+                            .map_err(|_| serde::de::Error::custom("invalid pattern"))?
+                            .store
+                            .to_owned(),
+                            SinglePlaceholderPattern::try_from_str(
+                                &adar_ii.replace(m5, "{0}"),
+                                Default::default(),
+                            )
+                            .map_err(|_| serde::de::Error::custom("invalid pattern"))?
+                            .store
+                            .to_owned(),
+                        )
+                    }
+                } else {
+                    let m1 = l.get(1).unwrap_or_default();
+                    let leap0 = l.get(12).unwrap_or_default();
+                    let leap1 = l.get(13).unwrap_or_default();
+                    let mut pat_str = None;
+                    for (idx, _) in leap0.match_indices(m0) {
+                        let prefix = &leap0[..idx];
+                        let suffix = &leap0[idx + m0.len()..];
+                        if format!("{prefix}{m1}{suffix}") == leap1 {
+                            pat_str = Some(format!("{prefix}{{0}}{suffix}"));
+                            break;
+                        }
+                    }
+                    let pat_str = pat_str.unwrap_or_else(|| leap0.replace(m0, "{0}"));
+                    (
+                        SinglePlaceholderPattern::try_from_str(&pat_str, Default::default())
+                            .map_err(|_| serde::de::Error::custom("invalid pattern"))?
+                            .store
+                            .to_owned(),
+                        SinglePlaceholderPattern::PASS_THROUGH.store.to_owned(),
+                    )
+                };
+
+                let mut symbols: Vec<&str> = (0..12).filter_map(|i| l.get(i)).collect();
+                symbols.push(&leap_pattern);
+                symbols.push(&leap_base_pattern);
+                Ok(Self::LeapPattern(VarZeroVec::from(&symbols)))
+            }
+            Raw::LeapLinear(l) => Ok(Self::LeapLinear(l)),
+            Raw::LeapNumeric(l) => Ok(Self::LeapNumeric(l)),
+            Raw::LeapNumericWithBase(l) => Ok(Self::LeapNumericWithBase(l)),
+            Raw::Numeric => Ok(Self::Numeric),
+            Raw::LeapPattern(l) => Ok(Self::LeapPattern(l)),
+        }
+    }
 }
 
 // Stability, don't want to serialize ::LeapPattern
@@ -869,4 +1008,58 @@ fn test_dayperiod_names() {
             .flexible_day_period(19u8.try_into().unwrap()),
         Some("晚上")
     );
+}
+
+#[cfg(all(test, feature = "datagen", feature = "compiled_data"))]
+#[test]
+fn test_year_and_month_names_serde_roundtrip() {
+    fn check_marker<M>(provider: &impl IterableDataProvider<M>)
+    where
+        M: DataMarker,
+        for<'a> <M::DataStruct as yoke::Yokeable<'a>>::Output:
+            serde::Serialize + serde::Deserialize<'a> + PartialEq + core::fmt::Debug,
+    {
+        for id in provider.iter_ids().unwrap() {
+            let payload: DataPayload<M> = provider
+                .load(DataRequest {
+                    id: id.as_borrowed(),
+                    ..Default::default()
+                })
+                .unwrap()
+                .payload;
+            {
+                let orig = payload.get();
+                let json = serde_json::to_string(orig).unwrap();
+                let from_json: <M::DataStruct as yoke::Yokeable<'_>>::Output =
+                    serde_json::from_str(&json).unwrap();
+                assert_eq!(orig, &from_json, "JSON roundtrip mismatch for {id:?}");
+            }
+
+            {
+                let orig = payload.get();
+                let bincode_bytes = bincode::serialize(orig).unwrap();
+                let from_bincode: <M::DataStruct as yoke::Yokeable<'_>>::Output =
+                    bincode::deserialize(&bincode_bytes).unwrap();
+                assert_eq!(orig, &from_bincode, "Bincode roundtrip mismatch for {id:?}");
+            }
+        }
+    }
+
+    struct IterBaked;
+    const _: () = {
+        use icu_datetime_data::*;
+        pub mod icu {
+            pub use crate as datetime;
+        }
+        make_provider!(IterBaked);
+        impl_datetime_names_year_japanese_v1!(IterBaked, ITER);
+        impl_datetime_names_month_chinese_v1!(IterBaked, ITER);
+        impl_datetime_names_month_dangi_v1!(IterBaked, ITER);
+        impl_datetime_names_month_hebrew_v1!(IterBaked, ITER);
+    };
+
+    check_marker::<DatetimeNamesYearJapaneseV1>(&IterBaked);
+    check_marker::<DatetimeNamesMonthChineseV1>(&IterBaked);
+    check_marker::<DatetimeNamesMonthDangiV1>(&IterBaked);
+    check_marker::<DatetimeNamesMonthHebrewV1>(&IterBaked);
 }

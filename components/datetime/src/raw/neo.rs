@@ -156,19 +156,20 @@ impl DatePatternSelectionData {
         provider: &(impl BoundDataProvider<ErasedPackedPatterns> + ?Sized),
         prefs: DateTimeFormatterPreferences,
         attributes: &DataMarkerAttributes,
-    ) -> Result<Self, DataError> {
+    ) -> Result<(Self, Option<DataLocale>), DataError> {
         let locale = provider
             .bound_marker()
             .make_locale(prefs.locale_preferences);
-        let payload = provider
-            .load_bound(DataRequest {
-                id: DataIdentifierBorrowed::for_marker_attributes_and_locale(attributes, &locale),
-                ..Default::default()
-            })?
-            .payload;
-        Ok(Self {
-            payload: DataPayloadOr::from_payload(payload),
-        })
+        let response = provider.load_bound(DataRequest {
+            id: DataIdentifierBorrowed::for_marker_attributes_and_locale(attributes, &locale),
+            ..Default::default()
+        })?;
+        Ok((
+            Self {
+                payload: DataPayloadOr::from_payload(response.payload),
+            },
+            response.metadata.locale,
+        ))
     }
 
     /// Borrows a pattern containing all of the fields that need to be loaded.
@@ -225,18 +226,20 @@ impl DateRangePatternSelectionData {
         provider: &(impl BoundDataProvider<ErasedPackedRangePatterns> + ?Sized),
         prefs: DateTimeFormatterPreferences,
         attributes: &DataMarkerAttributes,
+        expected_locale: Option<DataLocale>,
     ) -> Result<Self, DataError> {
         let locale = provider
             .bound_marker()
             .make_locale(prefs.locale_preferences);
-        let payload = provider
-            .load_bound(DataRequest {
-                id: DataIdentifierBorrowed::for_marker_attributes_and_locale(attributes, &locale),
-                ..Default::default()
-            })?
-            .payload;
+        let response = provider.load_bound(DataRequest {
+            id: DataIdentifierBorrowed::for_marker_attributes_and_locale(attributes, &locale),
+            ..Default::default()
+        })?;
+        if response.metadata.locale != expected_locale {
+            return Ok(Self::none());
+        }
         Ok(Self {
-            payload: DataPayloadOr::from_payload(payload),
+            payload: DataPayloadOr::from_payload(response.payload),
         })
     }
 
@@ -358,16 +361,16 @@ impl TimePatternSelectionData {
         provider: &(impl BoundDataProvider<ErasedPackedPatterns> + ?Sized),
         prefs: DateTimeFormatterPreferences,
         components: TimeFieldSet,
-    ) -> Result<Self, DataError> {
+    ) -> Result<(Self, Option<DataLocale>), DataError> {
         let locale = provider
             .bound_marker()
             .make_locale(prefs.locale_preferences);
         let prefs = RawPreferences::from_prefs(prefs);
         // First try to load with the explicit hour cycle. If there is no explicit hour cycle,
         // or if loading the explicit hour cycle fails, then load with the default hour cycle.
-        let mut maybe_payload = None;
+        let mut maybe_response = None;
         if let Some(hour_cycle) = prefs.hour_cycle {
-            maybe_payload = provider
+            maybe_response = provider
                 .load_bound(DataRequest {
                     id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
                         components.id_str_for_hour_cycle(Some(hour_cycle)),
@@ -375,26 +378,24 @@ impl TimePatternSelectionData {
                     ),
                     ..Default::default()
                 })
-                .allow_identifier_not_found()?
-                .map(|r| r.payload);
+                .allow_identifier_not_found()?;
         }
-        let payload = match maybe_payload {
-            Some(payload) => payload,
-            None => {
-                provider
-                    .load_bound(DataRequest {
-                        id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
-                            components.id_str_for_hour_cycle(None),
-                            &locale,
-                        ),
-                        ..Default::default()
-                    })?
-                    .payload
-            }
+        let response = match maybe_response {
+            Some(response) => response,
+            None => provider.load_bound(DataRequest {
+                id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
+                    components.id_str_for_hour_cycle(None),
+                    &locale,
+                ),
+                ..Default::default()
+            })?,
         };
-        Ok(Self {
-            payload: DataPayloadOr::from_payload(payload),
-        })
+        Ok((
+            Self {
+                payload: DataPayloadOr::from_payload(response.payload),
+            },
+            response.metadata.locale,
+        ))
     }
 
     pub(crate) fn try_new_overlap_with_skeleton(
@@ -402,7 +403,7 @@ impl TimePatternSelectionData {
         prefs: DateTimeFormatterPreferences,
         attributes: &DataMarkerAttributes,
         options: RawOptions,
-    ) -> Result<Self, DataError> {
+    ) -> Result<(Self, Option<DataLocale>), DataError> {
         // Currently, none of the overlap patterns have a year field,
         // so we can use the variant to select the time precision.
         //
@@ -413,15 +414,16 @@ impl TimePatternSelectionData {
         let locale = provider
             .bound_marker()
             .make_locale(prefs.locale_preferences);
-        let payload = provider
-            .load_bound(DataRequest {
-                id: DataIdentifierBorrowed::for_marker_attributes_and_locale(attributes, &locale),
-                ..Default::default()
-            })?
-            .payload;
-        Ok(Self {
-            payload: DataPayloadOr::from_payload(payload),
-        })
+        let response = provider.load_bound(DataRequest {
+            id: DataIdentifierBorrowed::for_marker_attributes_and_locale(attributes, &locale),
+            ..Default::default()
+        })?;
+        Ok((
+            Self {
+                payload: DataPayloadOr::from_payload(response.payload),
+            },
+            response.metadata.locale,
+        ))
     }
 
     /// Borrows a pattern containing all of the fields that need to be loaded.
@@ -502,6 +504,7 @@ impl TimeRangePatternSelectionData {
         provider: &(impl BoundDataProvider<ErasedPackedRangePatterns> + ?Sized),
         prefs: DateTimeFormatterPreferences,
         components: TimeFieldSet,
+        expected_locale: Option<DataLocale>,
     ) -> Result<Self, DataError> {
         let locale = provider
             .bound_marker()
@@ -509,9 +512,9 @@ impl TimeRangePatternSelectionData {
         let prefs = RawPreferences::from_prefs(prefs);
         // First try to load with the explicit hour cycle. If there is no explicit hour cycle,
         // or if loading the explicit hour cycle fails, then load with the default hour cycle.
-        let mut maybe_payload = None;
+        let mut maybe_response = None;
         if let Some(hour_cycle) = prefs.hour_cycle {
-            maybe_payload = provider
+            maybe_response = provider
                 .load_bound(DataRequest {
                     id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
                         components.id_str_for_hour_cycle(Some(hour_cycle)),
@@ -519,25 +522,23 @@ impl TimeRangePatternSelectionData {
                     ),
                     ..Default::default()
                 })
-                .allow_identifier_not_found()?
-                .map(|r| r.payload);
+                .allow_identifier_not_found()?;
         }
-        let payload = match maybe_payload {
-            Some(payload) => payload,
-            None => {
-                provider
-                    .load_bound(DataRequest {
-                        id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
-                            components.id_str_for_hour_cycle(None),
-                            &locale,
-                        ),
-                        ..Default::default()
-                    })?
-                    .payload
-            }
+        let response = match maybe_response {
+            Some(response) => response,
+            None => provider.load_bound(DataRequest {
+                id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
+                    components.id_str_for_hour_cycle(None),
+                    &locale,
+                ),
+                ..Default::default()
+            })?,
         };
+        if response.metadata.locale != expected_locale {
+            return Ok(Self::none());
+        }
         Ok(Self {
-            payload: DataPayloadOr::from_payload(payload),
+            payload: DataPayloadOr::from_payload(response.payload),
         })
     }
 
@@ -647,6 +648,16 @@ fn map_composite_skeleton<DateRes, TimeRes, E>(
     Ok((date, time))
 }
 
+/// Resolved locales for the date and time pattern loads.
+///
+/// Used during range formatter construction to ensure that range patterns
+/// resolved to the same locale as the corresponding single patterns.
+#[derive(Debug, Default)]
+pub(crate) struct PatternSelectionDataMetadata {
+    pub(crate) date_locale: Option<DataLocale>,
+    pub(crate) time_locale: Option<DataLocale>,
+}
+
 impl DateTimeZonePatternSelectionData {
     pub(crate) fn try_new_with_skeleton(
         date_provider: &(impl BoundDataProvider<ErasedPackedPatterns> + ?Sized),
@@ -654,7 +665,7 @@ impl DateTimeZonePatternSelectionData {
         glue_provider: &(impl BoundDataProvider<DatetimePatternsGlueV1> + ?Sized),
         prefs: DateTimeFormatterPreferences,
         skeleton: CompositeFieldSet,
-    ) -> Result<Self, DataError> {
+    ) -> Result<(Self, PatternSelectionDataMetadata), DataError> {
         // Handle overlap early return.
         //
         // Note: For range formatting on overlap skeletons (such as `ej` for short weekday + time),
@@ -671,23 +682,30 @@ impl DateTimeZonePatternSelectionData {
                 // Try loading an overlap pattern.
                 // Note: Overlap patterns are loaded from the date skeleton pattern provider
                 // and then stored as a TimePatternSelectionData.
-                && let Some(overlap) = TimePatternSelectionData::try_new_overlap_with_skeleton(
-                    date_provider,
-                    prefs,
-                    attributes,
-                    options,
-                )
-                .allow_identifier_not_found()?
+                && let Some((overlap, overlap_locale)) =
+                    TimePatternSelectionData::try_new_overlap_with_skeleton(
+                        date_provider,
+                        prefs,
+                        attributes,
+                        options,
+                    )
+                    .allow_identifier_not_found()?
             {
                 let prefs = RawPreferences::from_prefs(prefs);
-                return Ok(Self {
-                    options,
-                    prefs,
-                    date: DatePatternSelectionData::none(),
-                    time: overlap,
-                    zone: None,
-                    glue: None,
-                });
+                return Ok((
+                    Self {
+                        options,
+                        prefs,
+                        date: DatePatternSelectionData::none(),
+                        time: overlap,
+                        zone: None,
+                        glue: None,
+                    },
+                    PatternSelectionDataMetadata {
+                        date_locale: overlap_locale,
+                        time_locale: None,
+                    },
+                ));
             }
         }
 
@@ -721,8 +739,14 @@ impl DateTimeZonePatternSelectionData {
         )?;
 
         let has_time = time_opt.is_some();
-        let date = date_opt.unwrap_or_else(DatePatternSelectionData::none);
-        let time = time_opt.unwrap_or_else(TimePatternSelectionData::none);
+        let (date, date_locale) = match date_opt {
+            Some((d, l)) => (d, l),
+            None => (DatePatternSelectionData::none(), None),
+        };
+        let (time, time_locale) = match time_opt {
+            Some((t, l)) => (t, l),
+            None => (TimePatternSelectionData::none(), None),
+        };
 
         let prefs = if has_time {
             RawPreferences::from_prefs(prefs)
@@ -730,14 +754,20 @@ impl DateTimeZonePatternSelectionData {
             Default::default()
         };
 
-        Ok(Self {
-            options,
-            prefs,
-            date,
-            time,
-            zone,
-            glue,
-        })
+        Ok((
+            Self {
+                options,
+                prefs,
+                date,
+                time,
+                zone,
+                glue,
+            },
+            PatternSelectionDataMetadata {
+                date_locale,
+                time_locale,
+            },
+        ))
     }
 
     fn load_glue(
@@ -847,6 +877,7 @@ impl DateTimeZoneRangePatternSelectionData {
         range_glue_provider: &(impl BoundDataProvider<DatetimePatternsRangeGlueV1> + ?Sized),
         prefs: DateTimeFormatterPreferences,
         skeleton: CompositeFieldSet,
+        selection_metadata: PatternSelectionDataMetadata,
     ) -> Result<Self, DataError> {
         let locale = range_glue_provider
             .bound_marker()
@@ -869,6 +900,7 @@ impl DateTimeZoneRangePatternSelectionData {
                     date_range_provider,
                     prefs,
                     d_attrs,
+                    selection_metadata.date_locale,
                 )
             },
             |t_field_set| {
@@ -876,6 +908,7 @@ impl DateTimeZoneRangePatternSelectionData {
                     time_range_provider,
                     prefs,
                     t_field_set,
+                    selection_metadata.time_locale,
                 )
             },
         )?;

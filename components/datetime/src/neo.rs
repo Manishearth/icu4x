@@ -288,6 +288,20 @@ where
         P: ?Sized + AllFixedCalendarFormattingDataMarkers<C, FSet>,
         L: DecimalFormatterLoader,
     {
+        Self::try_new_internal_with_metadata(provider, loader, prefs, field_set_with_options)
+            .map(|(this, _)| this)
+    }
+
+    pub(crate) fn try_new_internal_with_metadata<P, L>(
+        provider: &P,
+        loader: &L,
+        prefs: DateTimeFormatterPreferences,
+        field_set_with_options: CompositeFieldSet,
+    ) -> Result<(Self, PatternSelectionDataMetadata), DateTimeFormatterLoadError>
+    where
+        P: ?Sized + AllFixedCalendarFormattingDataMarkers<C, FSet>,
+        L: DecimalFormatterLoader,
+    {
         let names = RawDateTimeNames::new_without_number_formatting();
         Self::try_new_internal_with_names(
             provider,
@@ -311,7 +325,7 @@ where
         mut names: RawDateTimeNames<FSet>,
         mut names_metadata: DateTimeNamesMetadata,
     ) -> Result<
-        Self,
+        (Self, PatternSelectionDataMetadata),
         (
             DateTimeFormatterLoadError,
             (RawDateTimeNames<FSet>, DateTimeNamesMetadata),
@@ -329,7 +343,7 @@ where
             prefs,
             field_set_with_options,
         );
-        let selection = match selection {
+        let (selection, selection_metadata) = match selection {
             Ok(selection) => selection,
             Err(e) => return Err((DateTimeFormatterLoadError::Data(e), (names, names_metadata))),
         };
@@ -363,11 +377,14 @@ where
                 ));
             }
         };
-        Ok(Self {
-            selection,
-            names,
-            _calendar: PhantomData,
-        })
+        Ok((
+            Self {
+                selection,
+                names,
+                _calendar: PhantomData,
+            },
+            selection_metadata,
+        ))
     }
 }
 
@@ -507,6 +524,20 @@ where
         P: ?Sized + AllAnyCalendarFormattingDataMarkers<FSet>,
         L: DecimalFormatterLoader + FormattableAnyCalendarLoader,
     {
+        Self::try_new_internal_with_metadata(provider, loader, prefs, field_set_with_options)
+            .map(|(this, _)| this)
+    }
+
+    pub(crate) fn try_new_internal_with_metadata<P, L>(
+        provider: &P,
+        loader: &L,
+        prefs: DateTimeFormatterPreferences,
+        field_set_with_options: CompositeFieldSet,
+    ) -> Result<(Self, PatternSelectionDataMetadata), DateTimeFormatterLoadError>
+    where
+        P: ?Sized + AllAnyCalendarFormattingDataMarkers<FSet>,
+        L: DecimalFormatterLoader + FormattableAnyCalendarLoader,
+    {
         let calendar = FormattableAnyCalendarLoader::load(loader, (&prefs).into())?;
         let names = RawDateTimeNames::new_without_number_formatting();
         Self::try_new_internal_with_calendar_and_names(
@@ -535,7 +566,7 @@ where
         mut names: RawDateTimeNames<FSet>,
         mut names_metadata: DateTimeNamesMetadata,
     ) -> Result<
-        Self,
+        (Self, PatternSelectionDataMetadata),
         (
             DateTimeFormatterLoadError,
             (
@@ -559,7 +590,7 @@ where
             prefs,
             field_set_with_options,
         );
-        let selection = match selection {
+        let (selection, selection_metadata) = match selection {
             Ok(selection) => selection,
             Err(e) => {
                 return Err((
@@ -602,11 +633,14 @@ where
                 ));
             }
         };
-        Ok(Self {
-            selection,
-            names,
-            calendar,
-        })
+        Ok((
+            Self {
+                selection,
+                names,
+                calendar,
+            },
+            selection_metadata,
+        ))
     }
 }
 

@@ -1051,6 +1051,7 @@ where
             self.inner,
             self.metadata,
         )
+        .map(|(this, _)| this)
         .map_err(|e| (e.0, Self::from_parts(self.prefs, e.1)))
     }
 
@@ -1073,6 +1074,7 @@ where
             self.inner,
             self.metadata,
         )
+        .map(|(this, _)| this)
         .map_err(|e| (e.0, Self::from_parts(self.prefs, e.1)))
     }
 
@@ -1096,6 +1098,7 @@ where
             self.inner,
             self.metadata,
         )
+        .map(|(this, _)| this)
         .map_err(|e| (e.0, Self::from_parts(self.prefs, e.1)))
     }
 }
@@ -1258,6 +1261,7 @@ where
             self.inner.inner,
             self.inner.metadata,
         )
+        .map(|(this, _)| this)
         .map_err(|e| (e.0, Self::from_parts(self.inner.prefs, e.1)))
     }
 
@@ -1281,6 +1285,7 @@ where
             self.inner.inner,
             self.inner.metadata,
         )
+        .map(|(this, _)| this)
         .map_err(|e| (e.0, Self::from_parts(self.inner.prefs, e.1)))
     }
 
@@ -1305,6 +1310,7 @@ where
             self.inner.inner,
             self.inner.metadata,
         )
+        .map(|(this, _)| this)
         .map_err(|e| (e.0, Self::from_parts(self.inner.prefs, e.1)))
     }
 }

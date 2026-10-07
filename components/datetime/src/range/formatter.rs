@@ -86,8 +86,13 @@ where
             + AllAnyCalendarRangePatternDataMarkers<FSet>,
     {
         let field = field_set_with_options.get_field();
-        let datetime_formatter =
-            DateTimeFormatter::try_new_internal(provider, external_loader, prefs, field)?;
+        let (datetime_formatter, selection_metadata) =
+            DateTimeFormatter::try_new_internal_with_metadata(
+                provider,
+                external_loader,
+                prefs,
+                field,
+            )?;
 
         let range_selection = DateTimeZoneRangePatternSelectionData::try_new_with_skeleton(
             &FormattableAnyCalendarNamesLoader::<<FSet::D as DateDataMarkers>::RangeSkel, _>::new(
@@ -98,6 +103,7 @@ where
             &DatetimePatternsRangeGlueV1::bind(provider),
             prefs,
             field,
+            selection_metadata,
         )
         .map_err(DateTimeFormatterLoadError::Data)?;
 
@@ -277,12 +283,13 @@ where
             + AllFixedCalendarRangePatternDataMarkers<C, FSet>,
     {
         let field = field_set_with_options.get_field();
-        let datetime_formatter = FixedCalendarDateTimeFormatter::try_new_internal(
-            provider,
-            external_loader,
-            prefs,
-            field,
-        )?;
+        let (datetime_formatter, selection_metadata) =
+            FixedCalendarDateTimeFormatter::try_new_internal_with_metadata(
+                provider,
+                external_loader,
+                prefs,
+                field,
+            )?;
 
         let range_selection = DateTimeZoneRangePatternSelectionData::try_new_with_skeleton(
             &<FSet::D as TypedDateDataMarkers<C>>::DateRangeSkeletonPatternsV1::bind(provider),
@@ -290,6 +297,7 @@ where
             &DatetimePatternsRangeGlueV1::bind(provider),
             prefs,
             field,
+            selection_metadata,
         )
         .map_err(DateTimeFormatterLoadError::Data)?;
 

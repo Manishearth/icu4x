@@ -1,0 +1,61 @@
+{
+  "relatives": {
+    "-1": "nakaraang Lin.",
+    "0": "ngayong Lin.",
+    "1": "susunod na Lin."
+  },
+  "past": {
+    "one": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Lin. ang nakalipas"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " (na) Linggo ang nakalipas"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "one": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Lin."
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " (na) Linggo"
+        }
+      ]
+    ]
+  }
+}

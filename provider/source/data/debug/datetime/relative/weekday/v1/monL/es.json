@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el lunes pasado",
+    "0": "este lunes",
+    "1": "el próximo lunes"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " lunes"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " lunes"
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "relatives": {
+    "-1": "الخميس الماضي",
+    "0": "الخميس الحالي",
+    "1": "الخميس القادم"
+  },
+  "past": {
+    "one": [
+      0,
+      [
+        {
+          "Literal": "الخميس الماضي"
+        }
+      ]
+    ],
+    "two": [
+      0,
+      [
+        {
+          "Literal": "الخميس قبل الماضي"
+        }
+      ]
+    ],
+    "few": [
+      0,
+      [
+        {
+          "Literal": "قبل "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " أيام خميس"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "قبل "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " يوم خميس"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "one": [
+      0,
+      [
+        {
+          "Literal": "الخميس القادم"
+        }
+      ]
+    ],
+    "two": [
+      0,
+      [
+        {
+          "Literal": "الخميس بعد القادم"
+        }
+      ]
+    ],
+    "few": [
+      0,
+      [
+        {
+          "Literal": "خلال "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " أيام خميس"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "خلال "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " يوم خميس"
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "mar. dernier",
+    "0": "ce mar.",
+    "1": "mar. prochain"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "il y a "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " mar."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dans "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " mar."
+        }
+      ]
+    ]
+  }
+}

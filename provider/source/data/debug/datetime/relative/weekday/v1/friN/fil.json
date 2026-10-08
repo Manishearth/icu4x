@@ -1,0 +1,64 @@
+{
+  "relatives": {
+    "-1": "nakaraang Biy.",
+    "0": "ngayong Biy.",
+    "1": "susunod na Biy."
+  },
+  "past": {
+    "one": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " (na) Biy ang nakalipas"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " (na) Biy ang nakalipas"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "one": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Biy."
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Biy"
+        }
+      ]
+    ]
+  }
+}

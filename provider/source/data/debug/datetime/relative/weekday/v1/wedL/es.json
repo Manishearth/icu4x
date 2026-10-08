@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el miércoles pasado",
+    "0": "este miércoles",
+    "1": "el próximo miércoles"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " miércoles"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " miércoles"
+        }
+      ]
+    ]
+  }
+}

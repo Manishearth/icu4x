@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "ven. dernier",
+    "0": "ce ven.",
+    "1": "ven. prochain"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "il y a "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " ven."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dans "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " ven."
+        }
+      ]
+    ]
+  }
+}

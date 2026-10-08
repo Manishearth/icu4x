@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el MA pasado",
+    "0": "este MA",
+    "1": "el próximo MA"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " MA"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " MA"
+        }
+      ]
+    ]
+  }
+}

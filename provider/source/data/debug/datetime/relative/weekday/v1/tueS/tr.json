@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "geçen salı",
+    "0": "bu salı",
+    "1": "gelecek salı"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " salı önce"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " salı sonra"
+        }
+      ]
+    ]
+  }
+}

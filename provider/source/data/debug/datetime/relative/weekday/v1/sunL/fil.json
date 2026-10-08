@@ -1,0 +1,47 @@
+{
+  "relatives": {
+    "-1": "nakaraang linggo",
+    "0": "sa Linggo",
+    "1": "susunod na Linggo"
+  },
+  "past": {
+    "one": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Linggo ang nakalipas"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " (na) Linggo ang nakalipas"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Linggo"
+        }
+      ]
+    ]
+  }
+}

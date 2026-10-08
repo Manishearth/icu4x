@@ -1,0 +1,61 @@
+{
+  "relatives": {
+    "-1": "nakaraang Huw.",
+    "0": "ngayong Huw.",
+    "1": "susunod na Huw."
+  },
+  "past": {
+    "one": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Huw. ang nakalipas"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " (na) Huwebes ang nakalipas"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "one": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Huw."
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " (na) Huwebes"
+        }
+      ]
+    ]
+  }
+}

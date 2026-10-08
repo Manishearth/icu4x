@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "গত রবিবার",
+    "0": "এই রবিবার",
+    "1": "পরের রবিবার"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " রবিবার আগে"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " রবিবারে"
+        }
+      ]
+    ]
+  }
+}

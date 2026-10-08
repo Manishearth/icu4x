@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "จันทร์ที่แล้ว",
+    "0": "จันทร์นี้",
+    "1": "จันทร์หน้า"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " จันทร์ที่แล้ว"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "ในอีก "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " จันทร์"
+        }
+      ]
+    ]
+  }
+}

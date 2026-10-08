@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el VI pasado",
+    "0": "este VI",
+    "1": "el próximo VI"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " VI"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " VI"
+        }
+      ]
+    ]
+  }
+}

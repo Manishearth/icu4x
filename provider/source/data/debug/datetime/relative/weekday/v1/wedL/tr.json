@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "geçen çarşamba",
+    "0": "bu çarşamba",
+    "1": "gelecek çarşamba"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " çarşamba önce"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " çarşamba sonra"
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "last Thursday",
+    "0": "this Thursday",
+    "1": "next Thursday"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "-"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Thursdays"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "+"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Thursdays"
+        }
+      ]
+    ]
+  }
+}

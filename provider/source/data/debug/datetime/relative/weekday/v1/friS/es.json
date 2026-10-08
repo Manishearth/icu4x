@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el vie. pasado",
+    "0": "este vie.",
+    "1": "el próximo vie."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " vie."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " vie."
+        }
+      ]
+    ]
+  }
+}

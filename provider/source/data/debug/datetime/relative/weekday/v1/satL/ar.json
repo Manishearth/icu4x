@@ -1,0 +1,107 @@
+{
+  "relatives": {
+    "-1": "السبت الماضي",
+    "0": "السبت الحالي",
+    "1": "السبت القادم"
+  },
+  "past": {
+    "one": [
+      0,
+      [
+        {
+          "Literal": "السبت الماضي"
+        }
+      ]
+    ],
+    "two": [
+      0,
+      [
+        {
+          "Literal": "السبت قبل الماضي"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "قبل "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " يوم سبت"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "zero": [
+      0,
+      [
+        {
+          "Literal": "السبت القادم"
+        }
+      ]
+    ],
+    "one": [
+      0,
+      [
+        {
+          "Literal": "السبت القادم"
+        }
+      ]
+    ],
+    "two": [
+      0,
+      [
+        {
+          "Literal": "السبت بعد القادم"
+        }
+      ]
+    ],
+    "few": [
+      0,
+      [
+        {
+          "Literal": "السبت بعد "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " أسابيع"
+        }
+      ]
+    ],
+    "many": [
+      0,
+      [
+        {
+          "Literal": "خلال "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " يوم سبت"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "بعد "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " يوم سبت"
+        }
+      ]
+    ]
+  }
+}

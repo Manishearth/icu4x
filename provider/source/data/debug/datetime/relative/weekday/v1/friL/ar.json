@@ -1,0 +1,99 @@
+{
+  "relatives": {
+    "-1": "الجمعة الماضي",
+    "0": "الجمعة الحالي",
+    "1": "الجمعة القادم"
+  },
+  "past": {
+    "one": [
+      0,
+      [
+        {
+          "Literal": "الجمعة الماضي"
+        }
+      ]
+    ],
+    "two": [
+      0,
+      [
+        {
+          "Literal": "الجمعة قبل الماضي"
+        }
+      ]
+    ],
+    "few": [
+      0,
+      [
+        {
+          "Literal": "قبل "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " أيام جمعة"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "قبل "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " يوم جمعة"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "one": [
+      0,
+      [
+        {
+          "Literal": "الجمعة القادم"
+        }
+      ]
+    ],
+    "two": [
+      0,
+      [
+        {
+          "Literal": "الجمعة بعد القادم"
+        }
+      ]
+    ],
+    "few": [
+      0,
+      [
+        {
+          "Literal": "خلال "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " أيام جمعة"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "خلال "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " يوم جمعة"
+        }
+      ]
+    ]
+  }
+}

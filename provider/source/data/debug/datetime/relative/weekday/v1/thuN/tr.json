@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "geçen per.",
+    "0": "bu per.",
+    "1": "gelecek per."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " per. önce"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " per. sonra"
+        }
+      ]
+    ]
+  }
+}

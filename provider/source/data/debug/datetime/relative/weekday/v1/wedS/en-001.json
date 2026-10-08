@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "last Wed",
+    "0": "this Wed",
+    "1": "next Wed"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Wed ago"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "in "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Wed"
+        }
+      ]
+    ]
+  }
+}

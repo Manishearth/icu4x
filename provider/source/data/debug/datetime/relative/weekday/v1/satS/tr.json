@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "geçen cmt.",
+    "0": "bu cmt.",
+    "1": "gelecek cmt."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " cmt. önce"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " cmt. sonra"
+        }
+      ]
+    ]
+  }
+}

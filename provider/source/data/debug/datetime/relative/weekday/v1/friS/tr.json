@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "geçen cuma",
+    "0": "bu cuma",
+    "1": "gelecek cuma"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " cuma önce"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " cuma sonra"
+        }
+      ]
+    ]
+  }
+}

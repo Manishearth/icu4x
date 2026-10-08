@@ -1,0 +1,61 @@
+{
+  "relatives": {
+    "-1": "nakaraang Miyerkules",
+    "0": "ngayong Miyerkules",
+    "1": "susunod na Miyerkules"
+  },
+  "past": {
+    "one": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Miyerkules ang nakalipas"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " (na) Miyerkules ang nakalipas"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "one": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Miyerkules"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " (na) Miyerkules"
+        }
+      ]
+    ]
+  }
+}

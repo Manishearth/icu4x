@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "last Saturday",
+    "0": "this Saturday",
+    "1": "next Saturday"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "-"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Saturdays"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "+"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Saturdays"
+        }
+      ]
+    ]
+  }
+}

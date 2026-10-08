@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "先週の土曜日",
+    "0": "今週の土曜日",
+    "1": "来週の土曜日"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " 個前の土曜日"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " 個後の土曜日"
+        }
+      ]
+    ]
+  }
+}

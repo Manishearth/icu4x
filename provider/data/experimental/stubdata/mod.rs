@@ -29,6 +29,7 @@ include!("datetime_relative_hour_short_v1.rs.data");
 include!("units_names_area_extended_v1.rs.data");
 include!("units_names_length_core_v1.rs.data");
 include!("datetime_relative_week_short_v1.rs.data");
+include!("datetime_relative_weekday_v1.rs.data");
 include!("units_names_area_core_v1.rs.data");
 include!("units_essentials_v1.rs.data");
 include!("units_names_volume_outlier_v1.rs.data");
@@ -122,6 +123,7 @@ macro_rules! impl_data_provider {
         impl_units_names_area_extended_v1!($provider);
         impl_units_names_length_core_v1!($provider);
         impl_datetime_relative_week_short_v1!($provider);
+        impl_datetime_relative_weekday_v1!($provider);
         impl_units_names_area_core_v1!($provider);
         impl_units_essentials_v1!($provider);
         impl_units_names_volume_outlier_v1!($provider);

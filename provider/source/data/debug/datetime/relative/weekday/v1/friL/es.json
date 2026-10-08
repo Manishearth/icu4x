@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el viernes pasado",
+    "0": "este viernes",
+    "1": "el próximo viernes"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " viernes"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " viernes"
+        }
+      ]
+    ]
+  }
+}

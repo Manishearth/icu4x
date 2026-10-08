@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "geçen çar.",
+    "0": "bu çar.",
+    "1": "gelecek çar."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " çar. önce"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " çar. sonra"
+        }
+      ]
+    ]
+  }
+}

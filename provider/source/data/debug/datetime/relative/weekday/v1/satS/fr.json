@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "sam. dernier",
+    "0": "ce sam.",
+    "1": "sam. prochain"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dans "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " sam."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dans "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " sam."
+        }
+      ]
+    ]
+  }
+}

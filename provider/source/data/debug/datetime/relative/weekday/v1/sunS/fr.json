@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "dim. dernier",
+    "0": "ce dim.",
+    "1": "dim. prochain"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "il y a "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " dim."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dans "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " dim."
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "geçen paz.",
+    "0": "bu paz.",
+    "1": "gelecek paz."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " paz. önce"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " paz. sonra"
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "last Thu",
+    "0": "this Thu",
+    "1": "next Thu"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Thu ago"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "in "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Thu"
+        }
+      ]
+    ]
+  }
+}

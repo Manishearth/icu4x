@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "last Sunday",
+    "0": "this Sunday",
+    "1": "next Sunday"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "-"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Sundays"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "+"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Sundays"
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el JU pasado",
+    "0": "este JU",
+    "1": "el próximo JU"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " JU"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " JU"
+        }
+      ]
+    ]
+  }
+}

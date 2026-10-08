@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "jeu. dernier",
+    "0": "ce jeu.",
+    "1": "jeu. prochain"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "il y a "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " jeu."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dans "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " jeu."
+        }
+      ]
+    ]
+  }
+}

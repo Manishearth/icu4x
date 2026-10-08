@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "geçen pazar",
+    "0": "bu pazar",
+    "1": "gelecek pazar"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " pazar önce"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " pazar sonra"
+        }
+      ]
+    ]
+  }
+}

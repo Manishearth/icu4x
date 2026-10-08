@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "গত বুধবার",
+    "0": "এই বুধবার",
+    "1": "পরের বুধবার"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " বুধবার আগে"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " বুধবারে"
+        }
+      ]
+    ]
+  }
+}

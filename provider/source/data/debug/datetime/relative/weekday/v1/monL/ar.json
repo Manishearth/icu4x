@@ -1,0 +1,127 @@
+{
+  "relatives": {
+    "-1": "الإثنين الماضي",
+    "0": "الإثنين الحالي",
+    "1": "الإثنين القادم"
+  },
+  "past": {
+    "zero": [
+      0,
+      [
+        {
+          "Literal": "قبل "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " إثنين"
+        }
+      ]
+    ],
+    "one": [
+      0,
+      [
+        {
+          "Literal": "الإثنين الماضي"
+        }
+      ]
+    ],
+    "two": [
+      0,
+      [
+        {
+          "Literal": "الإثنين قبل الماضي"
+        }
+      ]
+    ],
+    "few": [
+      0,
+      [
+        {
+          "Literal": "قبل "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " أيام إثنين"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "قبل "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " يوم إثنين"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "zero": [
+      0,
+      [
+        {
+          "Literal": "خلال "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " إثنين"
+        }
+      ]
+    ],
+    "one": [
+      0,
+      [
+        {
+          "Literal": "الإثنين القادم"
+        }
+      ]
+    ],
+    "two": [
+      0,
+      [
+        {
+          "Literal": "الإثنين بعد القادم"
+        }
+      ]
+    ],
+    "few": [
+      0,
+      [
+        {
+          "Literal": "خلال "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " أيام إثنين"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Literal": "خلال "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " يوم إثنين"
+        }
+      ]
+    ]
+  }
+}

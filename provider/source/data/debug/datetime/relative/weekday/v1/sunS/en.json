@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "last Sun.",
+    "0": "this Sun.",
+    "1": "next Sun."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Sun. ago"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "in "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " Sun."
+        }
+      ]
+    ]
+  }
+}

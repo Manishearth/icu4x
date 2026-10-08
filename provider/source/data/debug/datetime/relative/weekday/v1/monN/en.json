@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "last M",
+    "0": "this M",
+    "1": "next M"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " M ago"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "in "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " M"
+        }
+      ]
+    ]
+  }
+}

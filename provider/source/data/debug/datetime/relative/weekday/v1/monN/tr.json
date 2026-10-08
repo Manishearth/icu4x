@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "geçen pzt.",
+    "0": "bu pzt.",
+    "1": "gelecek pzt."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " pzt. önce"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " pzt. sonra"
+        }
+      ]
+    ]
+  }
+}

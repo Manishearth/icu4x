@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "เสาร์ที่แล้ว",
+    "0": "เสาร์นี้",
+    "1": "เสาร์หน้า"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " เสาร์ที่แล้ว"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "อีก "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " เสาร์"
+        }
+      ]
+    ]
+  }
+}

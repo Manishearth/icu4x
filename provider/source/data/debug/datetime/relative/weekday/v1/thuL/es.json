@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el jueves pasado",
+    "0": "este jueves",
+    "1": "el próximo jueves"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " jueves"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " jueves"
+        }
+      ]
+    ]
+  }
+}

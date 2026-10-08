@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el mié. pasado",
+    "0": "este mié.",
+    "1": "el próximo mié."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " mié."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " mié."
+        }
+      ]
+    ]
+  }
+}

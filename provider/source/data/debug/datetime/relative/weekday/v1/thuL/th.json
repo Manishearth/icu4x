@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "พฤหัสที่แล้ว",
+    "0": "พฤหัสนี้",
+    "1": "พฤหัสหน้า"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " พฤหัสที่แล้ว"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "ในอีก "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " พฤหัส"
+        }
+      ]
+    ]
+  }
+}

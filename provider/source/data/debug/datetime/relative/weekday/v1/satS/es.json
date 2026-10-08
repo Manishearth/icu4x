@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el sáb. pasado",
+    "0": "este sáb.",
+    "1": "el próximo sáb."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " sáb."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " sáb."
+        }
+      ]
+    ]
+  }
+}

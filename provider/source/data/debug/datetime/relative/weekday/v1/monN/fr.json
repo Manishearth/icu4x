@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "lun. dernier",
+    "0": "ce lun.",
+    "1": "lun. prochain"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "il y a "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " lun."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dans "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " lun."
+        }
+      ]
+    ]
+  }
+}

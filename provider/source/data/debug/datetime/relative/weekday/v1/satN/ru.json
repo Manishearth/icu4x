@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "в прош. сб.",
+    "0": "в эту сб.",
+    "1": "в след. сб."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "-"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " сб."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "+"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " сб."
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el DO pasado",
+    "0": "este DO",
+    "1": "el próximo DO"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " DO"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " DO"
+        }
+      ]
+    ]
+  }
+}

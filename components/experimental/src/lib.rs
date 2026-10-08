@@ -113,6 +113,7 @@ pub mod provider {
         impl_datetime_relative_year_long_v1!(Baked);
         impl_datetime_relative_year_narrow_v1!(Baked);
         impl_datetime_relative_year_short_v1!(Baked);
+        impl_datetime_relative_weekday_v1!(Baked);
         impl_transliterator_rules_v1!(Baked);
         impl_units_info_v1!(Baked);
         impl_units_id_v1!(Baked);
@@ -181,6 +182,7 @@ pub mod provider {
         super::relativetime::provider::DatetimeRelativeSecondShortV1::INFO,
         super::relativetime::provider::DatetimeRelativeWeekShortV1::INFO,
         super::relativetime::provider::DatetimeRelativeYearShortV1::INFO,
+        super::relativetime::provider::DatetimeRelativeWeekdayV1::INFO,
         super::transliterate::provider::TransliteratorRulesV1::INFO,
         super::units::provider::UnitsInfoV1::INFO,
     ];

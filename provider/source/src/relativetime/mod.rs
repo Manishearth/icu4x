@@ -135,6 +135,102 @@ make_data_provider!(
     DatetimeRelativeYearNarrowV1,
 );
 
+const WEEKDAY_ATTRIBUTES: &[(&DataMarkerAttributes, &str)] = &[
+    (DataMarkerAttributes::from_str_or_panic("sunL"), "sun"),
+    (DataMarkerAttributes::from_str_or_panic("sunS"), "sun-short"),
+    (
+        DataMarkerAttributes::from_str_or_panic("sunN"),
+        "sun-narrow",
+    ),
+    (DataMarkerAttributes::from_str_or_panic("monL"), "mon"),
+    (DataMarkerAttributes::from_str_or_panic("monS"), "mon-short"),
+    (
+        DataMarkerAttributes::from_str_or_panic("monN"),
+        "mon-narrow",
+    ),
+    (DataMarkerAttributes::from_str_or_panic("tueL"), "tue"),
+    (DataMarkerAttributes::from_str_or_panic("tueS"), "tue-short"),
+    (
+        DataMarkerAttributes::from_str_or_panic("tueN"),
+        "tue-narrow",
+    ),
+    (DataMarkerAttributes::from_str_or_panic("wedL"), "wed"),
+    (DataMarkerAttributes::from_str_or_panic("wedS"), "wed-short"),
+    (
+        DataMarkerAttributes::from_str_or_panic("wedN"),
+        "wed-narrow",
+    ),
+    (DataMarkerAttributes::from_str_or_panic("thuL"), "thu"),
+    (DataMarkerAttributes::from_str_or_panic("thuS"), "thu-short"),
+    (
+        DataMarkerAttributes::from_str_or_panic("thuN"),
+        "thu-narrow",
+    ),
+    (DataMarkerAttributes::from_str_or_panic("friL"), "fri"),
+    (DataMarkerAttributes::from_str_or_panic("friS"), "fri-short"),
+    (
+        DataMarkerAttributes::from_str_or_panic("friN"),
+        "fri-narrow",
+    ),
+    (DataMarkerAttributes::from_str_or_panic("satL"), "sat"),
+    (DataMarkerAttributes::from_str_or_panic("satS"), "sat-short"),
+    (
+        DataMarkerAttributes::from_str_or_panic("satN"),
+        "sat-narrow",
+    ),
+];
+
+impl DataProvider<DatetimeRelativeWeekdayV1> for SourceDataProvider {
+    fn load(&self, req: DataRequest) -> Result<DataResponse<DatetimeRelativeWeekdayV1>, DataError> {
+        self.check_req::<DatetimeRelativeWeekdayV1>(req)?;
+        let resource: &cldr_serde::date_fields::Resource = self
+            .cldr()?
+            .dates(None)
+            .read_and_parse(req.id.locale, "dateFields.json")?;
+        let fields = &resource.main.value.dates.fields;
+
+        let &(_, field) = WEEKDAY_ATTRIBUTES
+            .iter()
+            .find(|(attr, _)| *attr == req.id.marker_attributes)
+            .ok_or_else(|| {
+                DataError::custom("Unknown marker attribute for DatetimeRelativeWeekdayV1")
+                    .with_req(DatetimeRelativeWeekdayV1::INFO, req)
+            })?;
+
+        let data = fields.0.get(field).ok_or(DataError::custom(
+            "Field not found in relative time format data.",
+        ))?;
+
+        Ok(DataResponse {
+            metadata: Default::default(),
+            payload: DataPayload::from_owned(RelativeTimePatternData {
+                relatives: data
+                    .relatives
+                    .iter()
+                    .map(|r| (&r.count, r.pattern.as_ref()))
+                    .collect(),
+                past: (&data.past).into(),
+                future: (&data.future).into(),
+            }),
+        })
+    }
+}
+
+impl IterableDataProviderCached<DatetimeRelativeWeekdayV1> for SourceDataProvider {
+    fn iter_ids_cached(&self) -> Result<HashSet<DataIdentifierCow<'static>>, DataError> {
+        Ok(self
+            .cldr()?
+            .dates(None)
+            .list_locales()?
+            .flat_map(|locale| {
+                WEEKDAY_ATTRIBUTES.iter().map(move |&(attr, _)| {
+                    DataIdentifierCow::from_borrowed_and_owned(attr, locale.clone())
+                })
+            })
+            .collect())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,6 +296,34 @@ mod tests {
         assert_writeable_eq!(
             data.get().future.get(100.into(), &rules).interpolate([100]),
             "خلال 100 سنة"
+        );
+    }
+
+    #[test]
+    fn test_weekday() {
+        let provider = SourceDataProvider::new_testing();
+        let data: DataPayload<DatetimeRelativeWeekdayV1> = provider
+            .load(DataRequest {
+                id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
+                    DataMarkerAttributes::from_str_or_panic("monL"),
+                    &data_locale!("en"),
+                ),
+                ..Default::default()
+            })
+            .unwrap()
+            .payload;
+        let rules =
+            PluralRules::try_new_cardinal_unstable(&provider, locale!("en").into()).unwrap();
+        assert_eq!(data.get().relatives.get(&-1).unwrap(), "last Monday");
+        assert_eq!(data.get().relatives.get(&0).unwrap(), "this Monday");
+        assert_eq!(data.get().relatives.get(&1).unwrap(), "next Monday");
+        assert_writeable_eq!(
+            data.get().past.get(2.into(), &rules).interpolate([2]),
+            "2 Mondays ago"
+        );
+        assert_writeable_eq!(
+            data.get().future.get(2.into(), &rules).interpolate([2]),
+            "in 2 Mondays"
         );
     }
 }

@@ -4,7 +4,7 @@
 
 use fixed_decimal::Decimal;
 use icu_experimental::relativetime::{
-    RelativeTimeFormatter, RelativeTimeFormatterOptions, RelativeTimeFormatterPreferences,
+    RelativeTimeFormatter, RelativeTimeFormatterOptions, RelativeTimeFormatterPreferences, Weekday,
     options::Numeric,
 };
 use icu_locale_core::{extensions::unicode::value, locale};
@@ -1161,3 +1161,187 @@ fn test_numbering_system_latn() {
     assert_writeable_eq!(formatter_bn.format(55.into()), "৫৫ দিনের মধ্যে");
     assert_writeable_eq!(formatter_bn_latn.format(55.into()), "55 দিনের মধ্যে");
 }
+
+macro_rules! generate_weekday_test {
+    ($test_name: ident, $constructor: ident, $weekday: expr, $options: expr,
+     [$(($en_time: literal, $en_expected: literal)),+ $(,)?],
+     [$(($ar_time: literal, $ar_expected: literal)),+ $(,)?]) => {
+        #[test]
+        fn $test_name() {
+            let mut options = RelativeTimeFormatterOptions::default();
+            options.numeric = $options;
+            let relative_time_formatter = RelativeTimeFormatter::$constructor(
+                locale!("en").into(),
+                $weekday,
+                options,
+            )
+            .expect("locale should be present");
+
+            $(
+                assert_writeable_eq!(
+                    relative_time_formatter.format(Decimal::from($en_time)),
+                    $en_expected
+                );
+            )+
+
+            let relative_time_formatter = RelativeTimeFormatter::$constructor(
+                locale!("ar-EG").into(),
+                $weekday,
+                options,
+            )
+            .expect("locale should be present");
+
+            $(
+                assert_writeable_eq!(
+                    relative_time_formatter.format(Decimal::from($ar_time)),
+                    $ar_expected
+                );
+            )+
+        }
+    };
+}
+
+generate_weekday_test!(
+    test_long_weekday_always,
+    try_new_long_weekday,
+    Weekday::Monday,
+    Numeric::Always,
+    [
+        (-10, "10 Mondays ago"),
+        (-2, "2 Mondays ago"),
+        (-1, "1 Monday ago"),
+        (0, "in 0 Mondays"),
+        (1, "in 1 Monday"),
+        (2, "in 2 Mondays"),
+        (10, "in 10 Mondays")
+    ],
+    [
+        (-10, "قبل ١٠ أيام إثنين"),
+        (-2, "الإثنين قبل الماضي"),
+        (-1, "الإثنين الماضي"),
+        (0, "خلال ٠ إثنين"),
+        (1, "الإثنين القادم"),
+        (2, "الإثنين بعد القادم"),
+        (10, "خلال ١٠ أيام إثنين")
+    ]
+);
+generate_weekday_test!(
+    test_long_weekday_auto,
+    try_new_long_weekday,
+    Weekday::Monday,
+    Numeric::Auto,
+    [
+        (-10, "10 Mondays ago"),
+        (-2, "2 Mondays ago"),
+        (-1, "last Monday"),
+        (0, "this Monday"),
+        (1, "next Monday"),
+        (2, "in 2 Mondays"),
+        (10, "in 10 Mondays")
+    ],
+    [
+        (-10, "قبل ١٠ أيام إثنين"),
+        (-2, "الإثنين قبل الماضي"),
+        (-1, "الإثنين الماضي"),
+        (0, "الإثنين الحالي"),
+        (1, "الإثنين القادم"),
+        (2, "الإثنين بعد القادم"),
+        (10, "خلال ١٠ أيام إثنين")
+    ]
+);
+generate_weekday_test!(
+    test_short_weekday_always,
+    try_new_short_weekday,
+    Weekday::Monday,
+    Numeric::Always,
+    [
+        (-10, "10 Mon. ago"),
+        (-2, "2 Mon. ago"),
+        (-1, "1 Mon. ago"),
+        (0, "in 0 Mon."),
+        (1, "in 1 Mon."),
+        (2, "in 2 Mon."),
+        (10, "in 10 Mon.")
+    ],
+    [
+        (-10, "قبل ١٠ إثنين"),
+        (-2, "الإثنين قبل الماضي"),
+        (-1, "الإثنين الماضي"),
+        (0, "خلال ٠ إثنين"),
+        (1, "الإثنين القادم"),
+        (2, "الإثنين بعد القادم"),
+        (10, "خلال ١٠ إثنين")
+    ]
+);
+generate_weekday_test!(
+    test_short_weekday_auto,
+    try_new_short_weekday,
+    Weekday::Monday,
+    Numeric::Auto,
+    [
+        (-10, "10 Mon. ago"),
+        (-2, "2 Mon. ago"),
+        (-1, "last Mon."),
+        (0, "this Mon."),
+        (1, "next Mon."),
+        (2, "in 2 Mon."),
+        (10, "in 10 Mon.")
+    ],
+    [
+        (-10, "قبل ١٠ إثنين"),
+        (-2, "الإثنين قبل الماضي"),
+        (-1, "الإثنين الماضي"),
+        (0, "الإثنين الحالي"),
+        (1, "الإثنين القادم"),
+        (2, "الإثنين بعد القادم"),
+        (10, "خلال ١٠ إثنين")
+    ]
+);
+generate_weekday_test!(
+    test_narrow_weekday_always,
+    try_new_narrow_weekday,
+    Weekday::Monday,
+    Numeric::Always,
+    [
+        (-10, "10 M ago"),
+        (-2, "2 M ago"),
+        (-1, "1 M ago"),
+        (0, "in 0 M"),
+        (1, "in 1 M"),
+        (2, "in 2 M"),
+        (10, "in 10 M")
+    ],
+    [
+        (-10, "قبل ١٠ إثنين"),
+        (-2, "إثنين قبل الماضي"),
+        (-1, "إثنين ماضي"),
+        (0, "خلال ٠ إثنين"),
+        (1, "إثنين قادم"),
+        (2, "الإثنين بعد القادم"),
+        (10, "خلال ١٠ إثنين")
+    ]
+);
+generate_weekday_test!(
+    test_narrow_weekday_auto,
+    try_new_narrow_weekday,
+    Weekday::Monday,
+    Numeric::Auto,
+    [
+        (-10, "10 M ago"),
+        (-2, "2 M ago"),
+        (-1, "last M"),
+        (0, "this M"),
+        (1, "next M"),
+        (2, "in 2 M"),
+        (10, "in 10 M")
+    ],
+    [
+        (-10, "قبل ١٠ إثنين"),
+        (-2, "إثنين قبل الماضي"),
+        (-1, "الإثنين الماضي"),
+        (0, "الإثنين الحالي"),
+        (1, "الإثنين القادم"),
+        (2, "الإثنين بعد القادم"),
+        (10, "خلال ١٠ إثنين")
+    ]
+);

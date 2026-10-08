@@ -367,6 +367,7 @@ macro_rules! registry(
             icu::experimental::relativetime::provider::DatetimeRelativeYearLongV1: DatetimeRelativeYearLongV1,
             icu::experimental::relativetime::provider::DatetimeRelativeYearShortV1: DatetimeRelativeYearShortV1,
             icu::experimental::relativetime::provider::DatetimeRelativeYearNarrowV1: DatetimeRelativeYearNarrowV1,
+            icu::experimental::relativetime::provider::DatetimeRelativeWeekdayV1: DatetimeRelativeWeekdayV1,
             icu::experimental::personnames::provider::PersonNamesFormatV1: PersonNamesFormatV1,
             icu::experimental::transliterate::provider::TransliteratorRulesV1: TransliteratorRulesV1,
             icu::experimental::units::provider::UnitsInfoV1: UnitsInfoV1,

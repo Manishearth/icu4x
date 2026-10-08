@@ -24,3 +24,24 @@ pub enum Numeric {
     /// Automatically select special formatting if available else fallback to numeric formatting.
     Auto,
 }
+
+/// A weekday in a 7-day week, used for relative weekday formatting (e.g. "next Tuesday").
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[repr(u8)]
+#[allow(clippy::exhaustive_enums)] // 7-day week is fixed
+pub enum Weekday {
+    /// Monday
+    Monday = 1,
+    /// Tuesday
+    Tuesday,
+    /// Wednesday
+    Wednesday,
+    /// Thursday
+    Thursday,
+    /// Friday
+    Friday,
+    /// Saturday
+    Saturday,
+    /// Sunday
+    Sunday,
+}

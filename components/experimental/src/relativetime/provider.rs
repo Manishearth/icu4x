@@ -136,6 +136,58 @@ icu_provider::data_marker!(
     DatetimeRelativeYearNarrowV1,
     RelativeTimePatternData<'static>,
 );
+icu_provider::data_marker!(
+    /// `DatetimeRelativeWeekdayV1`
+    DatetimeRelativeWeekdayV1,
+    RelativeTimePatternData<'static>,
+);
+
+impl DatetimeRelativeWeekdayV1 {
+    pub(crate) const fn long_attr(
+        weekday: super::options::Weekday,
+    ) -> &'static DataMarkerAttributes {
+        use super::options::Weekday::*;
+        match weekday {
+            Monday => DataMarkerAttributes::from_str_or_panic("monL"),
+            Tuesday => DataMarkerAttributes::from_str_or_panic("tueL"),
+            Wednesday => DataMarkerAttributes::from_str_or_panic("wedL"),
+            Thursday => DataMarkerAttributes::from_str_or_panic("thuL"),
+            Friday => DataMarkerAttributes::from_str_or_panic("friL"),
+            Saturday => DataMarkerAttributes::from_str_or_panic("satL"),
+            Sunday => DataMarkerAttributes::from_str_or_panic("sunL"),
+        }
+    }
+
+    pub(crate) const fn short_attr(
+        weekday: super::options::Weekday,
+    ) -> &'static DataMarkerAttributes {
+        use super::options::Weekday::*;
+        match weekday {
+            Monday => DataMarkerAttributes::from_str_or_panic("monS"),
+            Tuesday => DataMarkerAttributes::from_str_or_panic("tueS"),
+            Wednesday => DataMarkerAttributes::from_str_or_panic("wedS"),
+            Thursday => DataMarkerAttributes::from_str_or_panic("thuS"),
+            Friday => DataMarkerAttributes::from_str_or_panic("friS"),
+            Saturday => DataMarkerAttributes::from_str_or_panic("satS"),
+            Sunday => DataMarkerAttributes::from_str_or_panic("sunS"),
+        }
+    }
+
+    pub(crate) const fn narrow_attr(
+        weekday: super::options::Weekday,
+    ) -> &'static DataMarkerAttributes {
+        use super::options::Weekday::*;
+        match weekday {
+            Monday => DataMarkerAttributes::from_str_or_panic("monN"),
+            Tuesday => DataMarkerAttributes::from_str_or_panic("tueN"),
+            Wednesday => DataMarkerAttributes::from_str_or_panic("wedN"),
+            Thursday => DataMarkerAttributes::from_str_or_panic("thuN"),
+            Friday => DataMarkerAttributes::from_str_or_panic("friN"),
+            Saturday => DataMarkerAttributes::from_str_or_panic("satN"),
+            Sunday => DataMarkerAttributes::from_str_or_panic("sunN"),
+        }
+    }
+}
 
 /// Relative time format  data struct.
 #[derive(Debug, Clone, PartialEq, yoke::Yokeable, zerofrom::ZeroFrom)]

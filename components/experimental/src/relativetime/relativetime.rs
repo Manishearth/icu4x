@@ -14,7 +14,7 @@ use icu_provider::marker::ErasedMarker;
 use icu_provider::prelude::*;
 
 use crate::relativetime::format::FormattedRelativeTime;
-use crate::relativetime::options::RelativeTimeFormatterOptions;
+use crate::relativetime::options::{RelativeTimeFormatterOptions, Weekday};
 use crate::relativetime::provider::*;
 
 define_preferences!(
@@ -133,6 +133,45 @@ pub mod preferences {
 ///     "১৫ বছর আগে"
 /// );
 /// ```
+///
+/// # Example: Relative Weekday Formatting
+///
+/// ```
+/// use fixed_decimal::Decimal;
+/// use icu::experimental::relativetime::options::Numeric;
+/// use icu::experimental::relativetime::{
+///     RelativeTimeFormatter, RelativeTimeFormatterOptions, Weekday,
+/// };
+/// use icu::locale::locale;
+/// use writeable::assert_writeable_eq;
+///
+/// let mut options = RelativeTimeFormatterOptions::default();
+/// options.numeric = Numeric::Auto;
+///
+/// let relative_time_formatter = RelativeTimeFormatter::try_new_long_weekday(
+///     locale!("en").into(),
+///     Weekday::Monday,
+///     options,
+/// )
+/// .expect("locale should be present");
+///
+/// assert_writeable_eq!(
+///     relative_time_formatter.format(Decimal::from(-1i8)),
+///     "last Monday"
+/// );
+/// assert_writeable_eq!(
+///     relative_time_formatter.format(Decimal::from(0i8)),
+///     "this Monday"
+/// );
+/// assert_writeable_eq!(
+///     relative_time_formatter.format(Decimal::from(1i8)),
+///     "next Monday"
+/// );
+/// assert_writeable_eq!(
+///     relative_time_formatter.format(Decimal::from(2i8)),
+///     "in 2 Mondays"
+/// );
+/// ```
 #[derive(Debug)]
 pub struct RelativeTimeFormatter {
     pub(crate) plural_rules: PluralRules,
@@ -222,6 +261,92 @@ macro_rules! constructor {
     };
 }
 
+macro_rules! weekday_constructor {
+    ($unstable: ident, $baked: ident, $buffer: ident, $attr_fn: ident) => {
+        /// Create a new [`RelativeTimeFormatter`] for a [`Weekday`] from compiled data.
+        ///
+        /// ✨ *Enabled with the `compiled_data` Cargo feature.*
+        ///
+        /// [📚 Help choosing a constructor](icu_provider::constructors)
+        #[cfg(feature = "compiled_data")]
+        pub fn $baked(
+            prefs: RelativeTimeFormatterPreferences,
+            weekday: Weekday,
+            options: RelativeTimeFormatterOptions,
+        ) -> Result<Self, DataError> {
+            let locale = DatetimeRelativeWeekdayV1::make_locale(prefs.locale_preferences);
+            let plural_rules = PluralRules::try_new_cardinal((&prefs).into())?;
+            let decimal_formatter = DecimalFormatter::try_new(
+                (&prefs).into(),
+                DecimalFormatterOptions::default(),
+            )?;
+            let rt: DataResponse<DatetimeRelativeWeekdayV1> = crate::provider::Baked.load(
+                DataRequest {
+                    id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
+                        DatetimeRelativeWeekdayV1::$attr_fn(weekday),
+                        &locale,
+                    ),
+                    ..Default::default()
+                },
+            )?;
+            let rt = rt.payload.cast();
+            Ok(RelativeTimeFormatter {
+                plural_rules,
+                options,
+                rt,
+                decimal_formatter,
+            })
+        }
+
+        icu_provider::gen_buffer_data_constructors!(
+            (prefs: RelativeTimeFormatterPreferences, weekday: Weekday, options: RelativeTimeFormatterOptions) -> error: DataError,
+            functions: [
+                $baked: skip,
+                $buffer,
+                $unstable,
+                Self,
+            ]
+        );
+
+        #[doc = icu_provider::gen_buffer_unstable_docs!(UNSTABLE, Self::$baked)]
+        pub fn $unstable<D>(
+            provider: &D,
+            prefs: RelativeTimeFormatterPreferences,
+            weekday: Weekday,
+            options: RelativeTimeFormatterOptions,
+        ) -> Result<Self, DataError>
+        where
+            D: DataProvider<PluralsCardinalV1>
+                + DataProvider<DatetimeRelativeWeekdayV1>
+                + DataProvider<DecimalSymbolsV1>
+                + DataProvider<DecimalDigitsV1>
+                + ?Sized,
+        {
+            let locale = DatetimeRelativeWeekdayV1::make_locale(prefs.locale_preferences);
+            let plural_rules = PluralRules::try_new_cardinal_unstable(provider, (&prefs).into())?;
+            let decimal_formatter = DecimalFormatter::try_new_unstable(
+                provider,
+                (&prefs).into(),
+                DecimalFormatterOptions::default(),
+            )?;
+            let rt: DataResponse<DatetimeRelativeWeekdayV1> = provider.load(DataRequest {
+                id: DataIdentifierBorrowed::for_marker_attributes_and_locale(
+                    DatetimeRelativeWeekdayV1::$attr_fn(weekday),
+                    &locale,
+                ),
+                ..Default::default()
+            })?;
+            let rt = rt.payload.cast();
+            Ok(RelativeTimeFormatter {
+                plural_rules,
+                options,
+                rt,
+                decimal_formatter,
+            })
+        }
+    };
+}
+
 impl RelativeTimeFormatter {
     constructor!(
         try_new_long_second_unstable,
@@ -271,6 +396,12 @@ impl RelativeTimeFormatter {
         try_new_long_year_with_buffer_provider,
         DatetimeRelativeYearLongV1
     );
+    weekday_constructor!(
+        try_new_long_weekday_unstable,
+        try_new_long_weekday,
+        try_new_long_weekday_with_buffer_provider,
+        long_attr
+    );
     constructor!(
         try_new_short_second_unstable,
         try_new_short_second,
@@ -319,6 +450,12 @@ impl RelativeTimeFormatter {
         try_new_short_year_with_buffer_provider,
         DatetimeRelativeYearShortV1
     );
+    weekday_constructor!(
+        try_new_short_weekday_unstable,
+        try_new_short_weekday,
+        try_new_short_weekday_with_buffer_provider,
+        short_attr
+    );
     constructor!(
         try_new_narrow_second_unstable,
         try_new_narrow_second,
@@ -366,6 +503,12 @@ impl RelativeTimeFormatter {
         try_new_narrow_year,
         try_new_narrow_year_with_buffer_provider,
         DatetimeRelativeYearNarrowV1
+    );
+    weekday_constructor!(
+        try_new_narrow_weekday_unstable,
+        try_new_narrow_weekday,
+        try_new_narrow_weekday_with_buffer_provider,
+        narrow_attr
     );
 
     /// Format a `value` according to the locale and formatting options of

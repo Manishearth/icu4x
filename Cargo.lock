@@ -1431,6 +1431,7 @@ dependencies = [
  "simple_logger",
  "tinystr",
  "unicode-bidi",
+ "write16",
  "writeable",
  "zerovec",
 ]

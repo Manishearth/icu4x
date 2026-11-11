@@ -87,20 +87,22 @@ export class CaseMapper {
     }
 
     /**
-     * Returns the full lowercase mapping of the given string
+     * Returns the full lowercase mapping of the given UTF-16 string
      *
-     * See the [Rust documentation for `lowercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase) for more information.
+     * Unpaired surrogates are passed through unchanged.
+     *
+     * See the [Rust documentation for `lowercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase_utf16_to) for more information.
      */
     lowercase(s, locale) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
-        const sSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str8(wasm, s)));
+        const sSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str16(wasm, s)));
         const write = new diplomatRuntime.DiplomatWriteBuf(wasm);
 
-    wasm.icu4x_CaseMapper_lowercase_mv1(this.ffiValue, sSlice.ptr, locale instanceof Locale ? locale.ffiValue : typeError('locale', 'Locale'), write.buffer);
+    wasm.icu4x_CaseMapper_lowercase_utf16_mv1(this.ffiValue, sSlice.ptr, locale instanceof Locale ? locale.ffiValue : typeError('locale', 'Locale'), write.buffer);
 
         try {
-            return write.readString8();
+            return write.readString16();
         }
 
         finally {
@@ -112,20 +114,22 @@ export class CaseMapper {
     }
 
     /**
-     * Returns the full uppercase mapping of the given string
+     * Returns the full uppercase mapping of the given UTF-16 string
      *
-     * See the [Rust documentation for `uppercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase) for more information.
+     * Unpaired surrogates are passed through unchanged.
+     *
+     * See the [Rust documentation for `uppercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase_utf16_to) for more information.
      */
     uppercase(s, locale) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
-        const sSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str8(wasm, s)));
+        const sSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str16(wasm, s)));
         const write = new diplomatRuntime.DiplomatWriteBuf(wasm);
 
-    wasm.icu4x_CaseMapper_uppercase_mv1(this.ffiValue, sSlice.ptr, locale instanceof Locale ? locale.ffiValue : typeError('locale', 'Locale'), write.buffer);
+    wasm.icu4x_CaseMapper_uppercase_utf16_mv1(this.ffiValue, sSlice.ptr, locale instanceof Locale ? locale.ffiValue : typeError('locale', 'Locale'), write.buffer);
 
         try {
-            return write.readString8();
+            return write.readString16();
         }
 
         finally {
@@ -137,20 +141,22 @@ export class CaseMapper {
     }
 
     /**
-     * Returns the full lowercase mapping of the given string, using compiled data (avoids having to allocate a `CaseMapper` object)
+     * Returns the full lowercase mapping of the given UTF-16 string, using compiled data (avoids having to allocate a `CaseMapper` object)
      *
-     * See the [Rust documentation for `lowercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase) for more information.
+     * Unpaired surrogates are passed through unchanged.
+     *
+     * See the [Rust documentation for `lowercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase_utf16_to) for more information.
      */
     static lowercaseWithCompiledData(s, locale) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
-        const sSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str8(wasm, s)));
+        const sSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str16(wasm, s)));
         const write = new diplomatRuntime.DiplomatWriteBuf(wasm);
 
-    wasm.icu4x_CaseMapper_lowercase_with_compiled_data_mv1(sSlice.ptr, locale instanceof Locale ? locale.ffiValue : typeError('locale', 'Locale'), write.buffer);
+    wasm.icu4x_CaseMapper_lowercase_with_compiled_data_utf16_mv1(sSlice.ptr, locale instanceof Locale ? locale.ffiValue : typeError('locale', 'Locale'), write.buffer);
 
         try {
-            return write.readString8();
+            return write.readString16();
         }
 
         finally {
@@ -162,20 +168,22 @@ export class CaseMapper {
     }
 
     /**
-     * Returns the full uppercase mapping of the given string, using compiled data (avoids having to allocate a `CaseMapper` object)
+     * Returns the full uppercase mapping of the given UTF-16 string, using compiled data (avoids having to allocate a `CaseMapper` object)
      *
-     * See the [Rust documentation for `uppercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase) for more information.
+     * Unpaired surrogates are passed through unchanged.
+     *
+     * See the [Rust documentation for `uppercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase_utf16_to) for more information.
      */
     static uppercaseWithCompiledData(s, locale) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
-        const sSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str8(wasm, s)));
+        const sSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str16(wasm, s)));
         const write = new diplomatRuntime.DiplomatWriteBuf(wasm);
 
-    wasm.icu4x_CaseMapper_uppercase_with_compiled_data_mv1(sSlice.ptr, locale instanceof Locale ? locale.ffiValue : typeError('locale', 'Locale'), write.buffer);
+    wasm.icu4x_CaseMapper_uppercase_with_compiled_data_utf16_mv1(sSlice.ptr, locale instanceof Locale ? locale.ffiValue : typeError('locale', 'Locale'), write.buffer);
 
         try {
-            return write.readString8();
+            return write.readString16();
         }
 
         finally {

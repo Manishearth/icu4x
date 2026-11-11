@@ -9,10 +9,10 @@ internal interface CaseMapperLib: Library {
     fun icu4x_CaseMapper_destroy_mv1(handle: Pointer)
     fun icu4x_CaseMapper_create_mv1(): Pointer
     fun icu4x_CaseMapper_create_with_provider_mv1(provider: Pointer): ResultPointerInt
-    fun icu4x_CaseMapper_lowercase_mv1(handle: Pointer, s: Slice, locale: Pointer, write: Pointer): Unit
-    fun icu4x_CaseMapper_uppercase_mv1(handle: Pointer, s: Slice, locale: Pointer, write: Pointer): Unit
-    fun icu4x_CaseMapper_lowercase_with_compiled_data_mv1(s: Slice, locale: Pointer, write: Pointer): Unit
-    fun icu4x_CaseMapper_uppercase_with_compiled_data_mv1(s: Slice, locale: Pointer, write: Pointer): Unit
+    fun icu4x_CaseMapper_lowercase_utf16_mv1(handle: Pointer, s: Slice, locale: Pointer, write: Pointer): Unit
+    fun icu4x_CaseMapper_uppercase_utf16_mv1(handle: Pointer, s: Slice, locale: Pointer, write: Pointer): Unit
+    fun icu4x_CaseMapper_lowercase_with_compiled_data_utf16_mv1(s: Slice, locale: Pointer, write: Pointer): Unit
+    fun icu4x_CaseMapper_uppercase_with_compiled_data_utf16_mv1(s: Slice, locale: Pointer, write: Pointer): Unit
     fun icu4x_CaseMapper_titlecase_segment_with_only_case_data_v1_mv1(handle: Pointer, s: Slice, locale: Pointer, options: TitlecaseOptionsNative, write: Pointer): Unit
     fun icu4x_CaseMapper_titlecase_segment_with_only_case_compiled_data_v1_mv1(s: Slice, locale: Pointer, options: TitlecaseOptionsNative, write: Pointer): Unit
     fun icu4x_CaseMapper_fold_mv1(handle: Pointer, s: Slice, write: Pointer): Unit
@@ -96,17 +96,19 @@ class CaseMapper internal constructor (
         @JvmStatic
         
         /**
-         * Returns the full lowercase mapping of the given string, using compiled data (avoids having to allocate a `CaseMapper` object)
+         * Returns the full lowercase mapping of the given UTF-16 string, using compiled data (avoids having to allocate a `CaseMapper` object)
          *
-         * See the [Rust documentation for `lowercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase) for more information.
+         * Unpaired surrogates are passed through unchanged.
+         *
+         * See the [Rust documentation for `lowercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase_utf16_to) for more information.
          */
-        fun lowercaseWithCompiledData(s: String, locale: Locale): String {
-            val sSliceMemory = PrimitiveArrayTools.borrowUtf8(s)
+        fun lowercase_with_compiled_data(s: String, locale: Locale): String {
+            val sSliceMemory = PrimitiveArrayTools.borrowUtf16(s)
             val write = DW.lib.diplomat_buffer_write_create(0)
-            val returnVal = lib.icu4x_CaseMapper_lowercase_with_compiled_data_mv1(sSliceMemory.slice, locale.handle, write);
+            val returnVal = lib.icu4x_CaseMapper_lowercase_with_compiled_data_utf16_mv1(sSliceMemory.slice, locale.handle, write);
             try {
                 
-                val returnString = DW.writeToString(write)
+                val returnString = DW.writeToString16(write)
                 return returnString
             } finally {
                 sSliceMemory.close()
@@ -115,17 +117,19 @@ class CaseMapper internal constructor (
         @JvmStatic
         
         /**
-         * Returns the full uppercase mapping of the given string, using compiled data (avoids having to allocate a `CaseMapper` object)
+         * Returns the full uppercase mapping of the given UTF-16 string, using compiled data (avoids having to allocate a `CaseMapper` object)
          *
-         * See the [Rust documentation for `uppercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase) for more information.
+         * Unpaired surrogates are passed through unchanged.
+         *
+         * See the [Rust documentation for `uppercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase_utf16_to) for more information.
          */
-        fun uppercaseWithCompiledData(s: String, locale: Locale): String {
-            val sSliceMemory = PrimitiveArrayTools.borrowUtf8(s)
+        fun uppercase_with_compiled_data(s: String, locale: Locale): String {
+            val sSliceMemory = PrimitiveArrayTools.borrowUtf16(s)
             val write = DW.lib.diplomat_buffer_write_create(0)
-            val returnVal = lib.icu4x_CaseMapper_uppercase_with_compiled_data_mv1(sSliceMemory.slice, locale.handle, write);
+            val returnVal = lib.icu4x_CaseMapper_uppercase_with_compiled_data_utf16_mv1(sSliceMemory.slice, locale.handle, write);
             try {
                 
-                val returnString = DW.writeToString(write)
+                val returnString = DW.writeToString16(write)
                 return returnString
             } finally {
                 sSliceMemory.close()
@@ -218,17 +222,19 @@ class CaseMapper internal constructor (
     }
     
     /**
-     * Returns the full lowercase mapping of the given string
+     * Returns the full lowercase mapping of the given UTF-16 string
      *
-     * See the [Rust documentation for `lowercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase) for more information.
+     * Unpaired surrogates are passed through unchanged.
+     *
+     * See the [Rust documentation for `lowercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase_utf16_to) for more information.
      */
     fun lowercase(s: String, locale: Locale): String {
-        val sSliceMemory = PrimitiveArrayTools.borrowUtf8(s)
+        val sSliceMemory = PrimitiveArrayTools.borrowUtf16(s)
         val write = DW.lib.diplomat_buffer_write_create(0)
-        val returnVal = lib.icu4x_CaseMapper_lowercase_mv1(handle, sSliceMemory.slice, locale.handle, write);
+        val returnVal = lib.icu4x_CaseMapper_lowercase_utf16_mv1(handle, sSliceMemory.slice, locale.handle, write);
         try {
             
-            val returnString = DW.writeToString(write)
+            val returnString = DW.writeToString16(write)
             return returnString
         } finally {
             sSliceMemory.close()
@@ -236,17 +242,19 @@ class CaseMapper internal constructor (
     }
     
     /**
-     * Returns the full uppercase mapping of the given string
+     * Returns the full uppercase mapping of the given UTF-16 string
      *
-     * See the [Rust documentation for `uppercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase) for more information.
+     * Unpaired surrogates are passed through unchanged.
+     *
+     * See the [Rust documentation for `uppercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase_utf16_to) for more information.
      */
     fun uppercase(s: String, locale: Locale): String {
-        val sSliceMemory = PrimitiveArrayTools.borrowUtf8(s)
+        val sSliceMemory = PrimitiveArrayTools.borrowUtf16(s)
         val write = DW.lib.diplomat_buffer_write_create(0)
-        val returnVal = lib.icu4x_CaseMapper_uppercase_mv1(handle, sSliceMemory.slice, locale.handle, write);
+        val returnVal = lib.icu4x_CaseMapper_uppercase_utf16_mv1(handle, sSliceMemory.slice, locale.handle, write);
         try {
             
-            val returnString = DW.writeToString(write)
+            val returnString = DW.writeToString16(write)
             return returnString
         } finally {
             sSliceMemory.close()

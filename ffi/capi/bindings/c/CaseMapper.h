@@ -27,11 +27,19 @@ icu4x_CaseMapper_create_with_provider_mv1_result icu4x_CaseMapper_create_with_pr
 
 void icu4x_CaseMapper_lowercase_mv1(const CaseMapper* self, DiplomatStringView s, const Locale* locale, DiplomatWrite* write);
 
+void icu4x_CaseMapper_lowercase_utf16_mv1(const CaseMapper* self, DiplomatString16View s, const Locale* locale, DiplomatWrite* write);
+
 void icu4x_CaseMapper_uppercase_mv1(const CaseMapper* self, DiplomatStringView s, const Locale* locale, DiplomatWrite* write);
+
+void icu4x_CaseMapper_uppercase_utf16_mv1(const CaseMapper* self, DiplomatString16View s, const Locale* locale, DiplomatWrite* write);
 
 void icu4x_CaseMapper_lowercase_with_compiled_data_mv1(DiplomatStringView s, const Locale* locale, DiplomatWrite* write);
 
+void icu4x_CaseMapper_lowercase_with_compiled_data_utf16_mv1(DiplomatString16View s, const Locale* locale, DiplomatWrite* write);
+
 void icu4x_CaseMapper_uppercase_with_compiled_data_mv1(DiplomatStringView s, const Locale* locale, DiplomatWrite* write);
+
+void icu4x_CaseMapper_uppercase_with_compiled_data_utf16_mv1(DiplomatString16View s, const Locale* locale, DiplomatWrite* write);
 
 void icu4x_CaseMapper_titlecase_segment_with_only_case_data_v1_mv1(const CaseMapper* self, DiplomatStringView s, const Locale* locale, TitlecaseOptionsV1 options, DiplomatWrite* write);
 

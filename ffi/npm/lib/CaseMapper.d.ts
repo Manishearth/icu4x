@@ -25,30 +25,38 @@ export class CaseMapper {
     static createWithProvider(provider: DataProvider): CaseMapper;
 
     /**
-     * Returns the full lowercase mapping of the given string
+     * Returns the full lowercase mapping of the given UTF-16 string
      *
-     * See the [Rust documentation for `lowercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase) for more information.
+     * Unpaired surrogates are passed through unchanged.
+     *
+     * See the [Rust documentation for `lowercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase_utf16_to) for more information.
      */
     lowercase(s: string, locale: Locale): string;
 
     /**
-     * Returns the full uppercase mapping of the given string
+     * Returns the full uppercase mapping of the given UTF-16 string
      *
-     * See the [Rust documentation for `uppercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase) for more information.
+     * Unpaired surrogates are passed through unchanged.
+     *
+     * See the [Rust documentation for `uppercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase_utf16_to) for more information.
      */
     uppercase(s: string, locale: Locale): string;
 
     /**
-     * Returns the full lowercase mapping of the given string, using compiled data (avoids having to allocate a `CaseMapper` object)
+     * Returns the full lowercase mapping of the given UTF-16 string, using compiled data (avoids having to allocate a `CaseMapper` object)
      *
-     * See the [Rust documentation for `lowercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase) for more information.
+     * Unpaired surrogates are passed through unchanged.
+     *
+     * See the [Rust documentation for `lowercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase_utf16_to) for more information.
      */
     static lowercaseWithCompiledData(s: string, locale: Locale): string;
 
     /**
-     * Returns the full uppercase mapping of the given string, using compiled data (avoids having to allocate a `CaseMapper` object)
+     * Returns the full uppercase mapping of the given UTF-16 string, using compiled data (avoids having to allocate a `CaseMapper` object)
      *
-     * See the [Rust documentation for `uppercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase) for more information.
+     * Unpaired surrogates are passed through unchanged.
+     *
+     * See the [Rust documentation for `uppercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase_utf16_to) for more information.
      */
     static uppercaseWithCompiledData(s: string, locale: Locale): string;
 

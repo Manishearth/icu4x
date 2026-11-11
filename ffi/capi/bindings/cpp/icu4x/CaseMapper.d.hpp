@@ -62,6 +62,17 @@ public:
   inline icu4x::diplomat::result<std::monostate, icu4x::diplomat::Utf8Error> lowercase_write(std::string_view s, const icu4x::Locale& locale, W& writeable_output) const;
 
   /**
+   * Returns the full lowercase mapping of the given UTF-16 string
+   *
+   * Unpaired surrogates are passed through unchanged.
+   *
+   * See the [Rust documentation for `lowercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase_utf16_to) for more information.
+   */
+  inline std::u16string lowercase16(std::u16string_view s, const icu4x::Locale& locale) const;
+  template<typename W>
+  inline void lowercase16_write(std::u16string_view s, const icu4x::Locale& locale, W& writeable_output) const;
+
+  /**
    * Returns the full uppercase mapping of the given string
    *
    * See the [Rust documentation for `uppercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase) for more information.
@@ -69,6 +80,17 @@ public:
   inline icu4x::diplomat::result<std::string, icu4x::diplomat::Utf8Error> uppercase(std::string_view s, const icu4x::Locale& locale) const;
   template<typename W>
   inline icu4x::diplomat::result<std::monostate, icu4x::diplomat::Utf8Error> uppercase_write(std::string_view s, const icu4x::Locale& locale, W& writeable_output) const;
+
+  /**
+   * Returns the full uppercase mapping of the given UTF-16 string
+   *
+   * Unpaired surrogates are passed through unchanged.
+   *
+   * See the [Rust documentation for `uppercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase_utf16_to) for more information.
+   */
+  inline std::u16string uppercase16(std::u16string_view s, const icu4x::Locale& locale) const;
+  template<typename W>
+  inline void uppercase16_write(std::u16string_view s, const icu4x::Locale& locale, W& writeable_output) const;
 
   /**
    * Returns the full lowercase mapping of the given string, using compiled data (avoids having to allocate a `CaseMapper` object)
@@ -80,6 +102,17 @@ public:
   inline static icu4x::diplomat::result<std::monostate, icu4x::diplomat::Utf8Error> lowercase_with_compiled_data_write(std::string_view s, const icu4x::Locale& locale, W& writeable_output);
 
   /**
+   * Returns the full lowercase mapping of the given UTF-16 string, using compiled data (avoids having to allocate a `CaseMapper` object)
+   *
+   * Unpaired surrogates are passed through unchanged.
+   *
+   * See the [Rust documentation for `lowercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase_utf16_to) for more information.
+   */
+  inline static std::u16string lowercase_with_compiled_data16(std::u16string_view s, const icu4x::Locale& locale);
+  template<typename W>
+  inline static void lowercase_with_compiled_data16_write(std::u16string_view s, const icu4x::Locale& locale, W& writeable_output);
+
+  /**
    * Returns the full uppercase mapping of the given string, using compiled data (avoids having to allocate a `CaseMapper` object)
    *
    * See the [Rust documentation for `uppercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase) for more information.
@@ -87,6 +120,17 @@ public:
   inline static icu4x::diplomat::result<std::string, icu4x::diplomat::Utf8Error> uppercase_with_compiled_data(std::string_view s, const icu4x::Locale& locale);
   template<typename W>
   inline static icu4x::diplomat::result<std::monostate, icu4x::diplomat::Utf8Error> uppercase_with_compiled_data_write(std::string_view s, const icu4x::Locale& locale, W& writeable_output);
+
+  /**
+   * Returns the full uppercase mapping of the given UTF-16 string, using compiled data (avoids having to allocate a `CaseMapper` object)
+   *
+   * Unpaired surrogates are passed through unchanged.
+   *
+   * See the [Rust documentation for `uppercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase_utf16_to) for more information.
+   */
+  inline static std::u16string uppercase_with_compiled_data16(std::u16string_view s, const icu4x::Locale& locale);
+  template<typename W>
+  inline static void uppercase_with_compiled_data16_write(std::u16string_view s, const icu4x::Locale& locale, W& writeable_output);
 
   /**
    * Returns the full titlecase mapping of the given string, performing head adjustment without

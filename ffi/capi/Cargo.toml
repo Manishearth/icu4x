@@ -78,7 +78,7 @@ default_components = [
 ]
 
 calendar = ["dep:icu_calendar", "dep:icu_time", "dep:tinystr"]
-casemap = ["dep:icu_casemap"]
+casemap = ["dep:icu_casemap", "icu_casemap?/write16", "dep:write16"]
 collator = ["dep:icu_collator"]
 # collections = ["dep:icu_collections"] # Not useful on its own: use properties
 datetime = ["calendar", "dep:icu_datetime"]

@@ -49,44 +49,52 @@ final class CaseMapper implements ffi.Finalizable {
     return CaseMapper._fromFfi(result.union.ok, []);
   }
 
-  /// Returns the full lowercase mapping of the given string
+  /// Returns the full lowercase mapping of the given UTF-16 string
   ///
-  /// See the [Rust documentation for `lowercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase) for more information.
+  /// Unpaired surrogates are passed through unchanged.
+  ///
+  /// See the [Rust documentation for `lowercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase_utf16_to) for more information.
   String lowercase(String s, Locale locale) {
     final temp = _FinalizedArena();
     final write = _Write();
-    _icu4x_CaseMapper_lowercase_mv1(_ffi, s._utf8AllocIn(temp.arena), locale._ffi, write._ffi);
-    return write.finalize();
+    _icu4x_CaseMapper_lowercase_utf16_mv1(_ffi, s._utf16AllocIn(temp.arena), locale._ffi, write._ffi);
+    return write.finalize16();
   }
 
-  /// Returns the full uppercase mapping of the given string
+  /// Returns the full uppercase mapping of the given UTF-16 string
   ///
-  /// See the [Rust documentation for `uppercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase) for more information.
+  /// Unpaired surrogates are passed through unchanged.
+  ///
+  /// See the [Rust documentation for `uppercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase_utf16_to) for more information.
   String uppercase(String s, Locale locale) {
     final temp = _FinalizedArena();
     final write = _Write();
-    _icu4x_CaseMapper_uppercase_mv1(_ffi, s._utf8AllocIn(temp.arena), locale._ffi, write._ffi);
-    return write.finalize();
+    _icu4x_CaseMapper_uppercase_utf16_mv1(_ffi, s._utf16AllocIn(temp.arena), locale._ffi, write._ffi);
+    return write.finalize16();
   }
 
-  /// Returns the full lowercase mapping of the given string, using compiled data (avoids having to allocate a `CaseMapper` object)
+  /// Returns the full lowercase mapping of the given UTF-16 string, using compiled data (avoids having to allocate a `CaseMapper` object)
   ///
-  /// See the [Rust documentation for `lowercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase) for more information.
+  /// Unpaired surrogates are passed through unchanged.
+  ///
+  /// See the [Rust documentation for `lowercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.lowercase_utf16_to) for more information.
   static String lowercaseWithCompiledData(String s, Locale locale) {
     final temp = _FinalizedArena();
     final write = _Write();
-    _icu4x_CaseMapper_lowercase_with_compiled_data_mv1(s._utf8AllocIn(temp.arena), locale._ffi, write._ffi);
-    return write.finalize();
+    _icu4x_CaseMapper_lowercase_with_compiled_data_utf16_mv1(s._utf16AllocIn(temp.arena), locale._ffi, write._ffi);
+    return write.finalize16();
   }
 
-  /// Returns the full uppercase mapping of the given string, using compiled data (avoids having to allocate a `CaseMapper` object)
+  /// Returns the full uppercase mapping of the given UTF-16 string, using compiled data (avoids having to allocate a `CaseMapper` object)
   ///
-  /// See the [Rust documentation for `uppercase`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase) for more information.
+  /// Unpaired surrogates are passed through unchanged.
+  ///
+  /// See the [Rust documentation for `uppercase_utf16_to`](https://docs.rs/icu/2.4.0/icu/casemap/struct.CaseMapperBorrowed.html#method.uppercase_utf16_to) for more information.
   static String uppercaseWithCompiledData(String s, Locale locale) {
     final temp = _FinalizedArena();
     final write = _Write();
-    _icu4x_CaseMapper_uppercase_with_compiled_data_mv1(s._utf8AllocIn(temp.arena), locale._ffi, write._ffi);
-    return write.finalize();
+    _icu4x_CaseMapper_uppercase_with_compiled_data_utf16_mv1(s._utf16AllocIn(temp.arena), locale._ffi, write._ffi);
+    return write.finalize16();
   }
 
   /// Returns the full titlecase mapping of the given string, performing head adjustment without
@@ -276,27 +284,27 @@ external _ResultOpaqueInt32 _icu4x_CaseMapper_create_with_provider_mv1(ffi.Point
 
 // ignore: experimental_member_use
 @meta.RecordUse()
-@ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Opaque>, _SliceUtf8, ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_CaseMapper_lowercase_mv1')
+@ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Opaque>, _SliceUtf16, ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_CaseMapper_lowercase_utf16_mv1')
 // ignore: non_constant_identifier_names
-external void _icu4x_CaseMapper_lowercase_mv1(ffi.Pointer<ffi.Opaque> self, _SliceUtf8 s, ffi.Pointer<ffi.Opaque> locale, ffi.Pointer<ffi.Opaque> write);
+external void _icu4x_CaseMapper_lowercase_utf16_mv1(ffi.Pointer<ffi.Opaque> self, _SliceUtf16 s, ffi.Pointer<ffi.Opaque> locale, ffi.Pointer<ffi.Opaque> write);
 
 // ignore: experimental_member_use
 @meta.RecordUse()
-@ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Opaque>, _SliceUtf8, ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_CaseMapper_uppercase_mv1')
+@ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Opaque>, _SliceUtf16, ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_CaseMapper_uppercase_utf16_mv1')
 // ignore: non_constant_identifier_names
-external void _icu4x_CaseMapper_uppercase_mv1(ffi.Pointer<ffi.Opaque> self, _SliceUtf8 s, ffi.Pointer<ffi.Opaque> locale, ffi.Pointer<ffi.Opaque> write);
+external void _icu4x_CaseMapper_uppercase_utf16_mv1(ffi.Pointer<ffi.Opaque> self, _SliceUtf16 s, ffi.Pointer<ffi.Opaque> locale, ffi.Pointer<ffi.Opaque> write);
 
 // ignore: experimental_member_use
 @meta.RecordUse()
-@ffi.Native<ffi.Void Function(_SliceUtf8, ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_CaseMapper_lowercase_with_compiled_data_mv1')
+@ffi.Native<ffi.Void Function(_SliceUtf16, ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_CaseMapper_lowercase_with_compiled_data_utf16_mv1')
 // ignore: non_constant_identifier_names
-external void _icu4x_CaseMapper_lowercase_with_compiled_data_mv1(_SliceUtf8 s, ffi.Pointer<ffi.Opaque> locale, ffi.Pointer<ffi.Opaque> write);
+external void _icu4x_CaseMapper_lowercase_with_compiled_data_utf16_mv1(_SliceUtf16 s, ffi.Pointer<ffi.Opaque> locale, ffi.Pointer<ffi.Opaque> write);
 
 // ignore: experimental_member_use
 @meta.RecordUse()
-@ffi.Native<ffi.Void Function(_SliceUtf8, ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_CaseMapper_uppercase_with_compiled_data_mv1')
+@ffi.Native<ffi.Void Function(_SliceUtf16, ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_CaseMapper_uppercase_with_compiled_data_utf16_mv1')
 // ignore: non_constant_identifier_names
-external void _icu4x_CaseMapper_uppercase_with_compiled_data_mv1(_SliceUtf8 s, ffi.Pointer<ffi.Opaque> locale, ffi.Pointer<ffi.Opaque> write);
+external void _icu4x_CaseMapper_uppercase_with_compiled_data_utf16_mv1(_SliceUtf16 s, ffi.Pointer<ffi.Opaque> locale, ffi.Pointer<ffi.Opaque> write);
 
 // ignore: experimental_member_use
 @meta.RecordUse()

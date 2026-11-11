@@ -30,11 +30,19 @@ namespace capi {
 
     void icu4x_CaseMapper_lowercase_mv1(const icu4x::capi::CaseMapper* self, icu4x::diplomat::capi::DiplomatStringView s, const icu4x::capi::Locale* locale, icu4x::diplomat::capi::DiplomatWrite* write);
 
+    void icu4x_CaseMapper_lowercase_utf16_mv1(const icu4x::capi::CaseMapper* self, icu4x::diplomat::capi::DiplomatString16View s, const icu4x::capi::Locale* locale, icu4x::diplomat::capi::DiplomatWrite* write);
+
     void icu4x_CaseMapper_uppercase_mv1(const icu4x::capi::CaseMapper* self, icu4x::diplomat::capi::DiplomatStringView s, const icu4x::capi::Locale* locale, icu4x::diplomat::capi::DiplomatWrite* write);
+
+    void icu4x_CaseMapper_uppercase_utf16_mv1(const icu4x::capi::CaseMapper* self, icu4x::diplomat::capi::DiplomatString16View s, const icu4x::capi::Locale* locale, icu4x::diplomat::capi::DiplomatWrite* write);
 
     void icu4x_CaseMapper_lowercase_with_compiled_data_mv1(icu4x::diplomat::capi::DiplomatStringView s, const icu4x::capi::Locale* locale, icu4x::diplomat::capi::DiplomatWrite* write);
 
+    void icu4x_CaseMapper_lowercase_with_compiled_data_utf16_mv1(icu4x::diplomat::capi::DiplomatString16View s, const icu4x::capi::Locale* locale, icu4x::diplomat::capi::DiplomatWrite* write);
+
     void icu4x_CaseMapper_uppercase_with_compiled_data_mv1(icu4x::diplomat::capi::DiplomatStringView s, const icu4x::capi::Locale* locale, icu4x::diplomat::capi::DiplomatWrite* write);
+
+    void icu4x_CaseMapper_uppercase_with_compiled_data_utf16_mv1(icu4x::diplomat::capi::DiplomatString16View s, const icu4x::capi::Locale* locale, icu4x::diplomat::capi::DiplomatWrite* write);
 
     void icu4x_CaseMapper_titlecase_segment_with_only_case_data_v1_mv1(const icu4x::capi::CaseMapper* self, icu4x::diplomat::capi::DiplomatStringView s, const icu4x::capi::Locale* locale, icu4x::capi::TitlecaseOptionsV1 options, icu4x::diplomat::capi::DiplomatWrite* write);
 
@@ -107,6 +115,24 @@ inline icu4x::diplomat::result<std::monostate, icu4x::diplomat::Utf8Error> icu4x
     return icu4x::diplomat::Ok<std::monostate>();
 }
 
+inline std::u16string icu4x::CaseMapper::lowercase16(std::u16string_view s, const icu4x::Locale& locale) const {
+    std::u16string output;
+    icu4x::diplomat::capi::DiplomatWrite write = icu4x::diplomat::WriteFromString16(output);
+    icu4x::capi::icu4x_CaseMapper_lowercase_utf16_mv1(this->AsFFI(),
+        {s.data(), s.size()},
+        locale.AsFFI(),
+        &write);
+    return output;
+}
+template<typename W>
+inline void icu4x::CaseMapper::lowercase16_write(std::u16string_view s, const icu4x::Locale& locale, W& writeable) const {
+    icu4x::diplomat::capi::DiplomatWrite write = icu4x::diplomat::WriteTrait<W>::Construct(writeable);
+    icu4x::capi::icu4x_CaseMapper_lowercase_utf16_mv1(this->AsFFI(),
+        {s.data(), s.size()},
+        locale.AsFFI(),
+        &write);
+}
+
 inline icu4x::diplomat::result<std::string, icu4x::diplomat::Utf8Error> icu4x::CaseMapper::uppercase(std::string_view s, const icu4x::Locale& locale) const {
     if (!icu4x::diplomat::capi::diplomat_is_str(s.data(), s.size())) {
     return icu4x::diplomat::Err<icu4x::diplomat::Utf8Error>();
@@ -132,6 +158,24 @@ inline icu4x::diplomat::result<std::monostate, icu4x::diplomat::Utf8Error> icu4x
     return icu4x::diplomat::Ok<std::monostate>();
 }
 
+inline std::u16string icu4x::CaseMapper::uppercase16(std::u16string_view s, const icu4x::Locale& locale) const {
+    std::u16string output;
+    icu4x::diplomat::capi::DiplomatWrite write = icu4x::diplomat::WriteFromString16(output);
+    icu4x::capi::icu4x_CaseMapper_uppercase_utf16_mv1(this->AsFFI(),
+        {s.data(), s.size()},
+        locale.AsFFI(),
+        &write);
+    return output;
+}
+template<typename W>
+inline void icu4x::CaseMapper::uppercase16_write(std::u16string_view s, const icu4x::Locale& locale, W& writeable) const {
+    icu4x::diplomat::capi::DiplomatWrite write = icu4x::diplomat::WriteTrait<W>::Construct(writeable);
+    icu4x::capi::icu4x_CaseMapper_uppercase_utf16_mv1(this->AsFFI(),
+        {s.data(), s.size()},
+        locale.AsFFI(),
+        &write);
+}
+
 inline icu4x::diplomat::result<std::string, icu4x::diplomat::Utf8Error> icu4x::CaseMapper::lowercase_with_compiled_data(std::string_view s, const icu4x::Locale& locale) {
     if (!icu4x::diplomat::capi::diplomat_is_str(s.data(), s.size())) {
     return icu4x::diplomat::Err<icu4x::diplomat::Utf8Error>();
@@ -155,6 +199,22 @@ inline icu4x::diplomat::result<std::monostate, icu4x::diplomat::Utf8Error> icu4x
     return icu4x::diplomat::Ok<std::monostate>();
 }
 
+inline std::u16string icu4x::CaseMapper::lowercase_with_compiled_data16(std::u16string_view s, const icu4x::Locale& locale) {
+    std::u16string output;
+    icu4x::diplomat::capi::DiplomatWrite write = icu4x::diplomat::WriteFromString16(output);
+    icu4x::capi::icu4x_CaseMapper_lowercase_with_compiled_data_utf16_mv1({s.data(), s.size()},
+        locale.AsFFI(),
+        &write);
+    return output;
+}
+template<typename W>
+inline void icu4x::CaseMapper::lowercase_with_compiled_data16_write(std::u16string_view s, const icu4x::Locale& locale, W& writeable) {
+    icu4x::diplomat::capi::DiplomatWrite write = icu4x::diplomat::WriteTrait<W>::Construct(writeable);
+    icu4x::capi::icu4x_CaseMapper_lowercase_with_compiled_data_utf16_mv1({s.data(), s.size()},
+        locale.AsFFI(),
+        &write);
+}
+
 inline icu4x::diplomat::result<std::string, icu4x::diplomat::Utf8Error> icu4x::CaseMapper::uppercase_with_compiled_data(std::string_view s, const icu4x::Locale& locale) {
     if (!icu4x::diplomat::capi::diplomat_is_str(s.data(), s.size())) {
     return icu4x::diplomat::Err<icu4x::diplomat::Utf8Error>();
@@ -176,6 +236,22 @@ inline icu4x::diplomat::result<std::monostate, icu4x::diplomat::Utf8Error> icu4x
         locale.AsFFI(),
         &write);
     return icu4x::diplomat::Ok<std::monostate>();
+}
+
+inline std::u16string icu4x::CaseMapper::uppercase_with_compiled_data16(std::u16string_view s, const icu4x::Locale& locale) {
+    std::u16string output;
+    icu4x::diplomat::capi::DiplomatWrite write = icu4x::diplomat::WriteFromString16(output);
+    icu4x::capi::icu4x_CaseMapper_uppercase_with_compiled_data_utf16_mv1({s.data(), s.size()},
+        locale.AsFFI(),
+        &write);
+    return output;
+}
+template<typename W>
+inline void icu4x::CaseMapper::uppercase_with_compiled_data16_write(std::u16string_view s, const icu4x::Locale& locale, W& writeable) {
+    icu4x::diplomat::capi::DiplomatWrite write = icu4x::diplomat::WriteTrait<W>::Construct(writeable);
+    icu4x::capi::icu4x_CaseMapper_uppercase_with_compiled_data_utf16_mv1({s.data(), s.size()},
+        locale.AsFFI(),
+        &write);
 }
 
 inline icu4x::diplomat::result<std::string, icu4x::diplomat::Utf8Error> icu4x::CaseMapper::titlecase_segment_with_only_case_data_v1(std::string_view s, const icu4x::Locale& locale, icu4x::TitlecaseOptionsV1 options) const {

@@ -26,6 +26,8 @@ icu_locale_core = { workspace = true, features = ["alloc"] }
 icu_properties = { workspace = true }
 icu_provider = { workspace = true, features = ["alloc"] }
 potential_utf = { workspace = true, features = ["alloc", "zerovec"] }
+utf16_iter = { workspace = true, optional = true }
+write16 = { workspace = true, optional = true }
 writeable = { workspace = true }
 zerovec = { workspace = true, features = ["alloc", "yoke"] }
 
@@ -38,15 +40,17 @@ icu_casemap_data = { workspace = true, optional = true }
 icu = { path = "../../components/icu", default-features = false }
 icu_normalizer = { path = "../../components/normalizer", features = ["compiled_data"]}
 icu_collections = { path = "../../components/collections", features = ["databake"] }
+write16 = { workspace = true, features = ["alloc"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 criterion = { workspace = true }
 
 [features]
-default = ["compiled_data"]
+default = ["compiled_data", "write16"]
 serde = ["dep:serde", "zerovec/serde", "icu_collections/serde", "icu_provider/serde", "icu_properties/serde", "potential_utf/serde"]
 datagen = ["serde", "dep:databake", "zerovec/databake", "icu_collections/databake", "icu_provider/export"]
 compiled_data = ["dep:icu_casemap_data", "icu_properties/compiled_data", "icu_provider/baked"]
+write16 = ["dep:write16", "dep:utf16_iter"]
 
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true

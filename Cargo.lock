@@ -1425,6 +1425,8 @@ dependencies = [
  "icu_provider",
  "potential_utf",
  "serde",
+ "utf16_iter",
+ "write16",
  "writeable",
  "zerovec",
 ]

@@ -52,19 +52,20 @@ impl<Wr: Writeable> Writeable for StringAndWriteable<'_, Wr> {
     }
 }
 
-pub(crate) struct FullCaseWriteable<'a, 'data, const IS_TITLE_CONTEXT: bool> {
+pub(crate) struct FullCaseWriteable<'a, 'data, const IS_TITLE_CONTEXT: bool, S: ?Sized = str> {
     data: &'data CaseMap<'data>,
-    src: &'a str,
+    src: &'a S,
     locale: CaseMapLocale,
     mapping: MappingKind,
     titlecase_tail_casing: TrailingCase,
 }
 
-impl<'a, const IS_TITLE_CONTEXT: bool> Writeable for FullCaseWriteable<'a, '_, IS_TITLE_CONTEXT> {
-    fn write_to<W: fmt::Write + ?Sized>(&self, sink: &mut W) -> fmt::Result {
+impl<'a, const IS_TITLE_CONTEXT: bool, S: CaseMapTarget + ?Sized>
+    FullCaseWriteable<'a, '_, IS_TITLE_CONTEXT, S>
+{
+    fn write_to_sink<W: CaseMapSink<S> + ?Sized>(&self, sink: &mut W) -> fmt::Result {
         let src = self.src;
         let mut mapping = self.mapping;
-        let mut iter = src.char_indices();
         // Number of characters to titlecase at the beginning
         // for the dutch IJ case.
         //
@@ -76,10 +77,19 @@ impl<'a, const IS_TITLE_CONTEXT: bool> Writeable for FullCaseWriteable<'a, '_, I
         } else {
             None
         };
-        for (i, c) in &mut iter {
+        for (i, c) in src.char_indices() {
             let context = ContextIterator::new(&src[..i], &src[i..]);
-            self.data
-                .full_helper::<IS_TITLE_CONTEXT, W>(c, context, self.locale, mapping, sink)?;
+            if let Some(c) = c {
+                self.data.full_helper::<IS_TITLE_CONTEXT, W, S>(
+                    c,
+                    context,
+                    self.locale,
+                    mapping,
+                    sink,
+                )?;
+            } else {
+                sink.write_slice(&src[i..i + 1])?;
+            }
             if IS_TITLE_CONTEXT {
                 // Check if we're uppercasing a dutch IJ
                 if let Some(count) = dutch_titlecase_count {
@@ -100,21 +110,35 @@ impl<'a, const IS_TITLE_CONTEXT: bool> Writeable for FullCaseWriteable<'a, '_, I
                 if self.titlecase_tail_casing == TrailingCase::Lower {
                     mapping = MappingKind::Lower;
                 } else {
+                    // Write the rest of the string
+                    sink.write_slice(context.after)?;
                     break;
                 }
             }
         }
-        // Write the rest of the string
-        if IS_TITLE_CONTEXT && self.titlecase_tail_casing == TrailingCase::Unchanged {
-            sink.write_str(iter.as_str())?;
-        }
         Ok(())
+    }
+}
+
+impl<'a, const IS_TITLE_CONTEXT: bool> Writeable
+    for FullCaseWriteable<'a, '_, IS_TITLE_CONTEXT, str>
+{
+    fn write_to<W: fmt::Write + ?Sized>(&self, sink: &mut W) -> fmt::Result {
+        self.write_to_sink(sink)
     }
     fn writeable_length_hint(&self) -> writeable::LengthHint {
         writeable::LengthHint::at_least(self.src.len())
     }
     fn write_to_string(&self) -> alloc::borrow::Cow<'a, str> {
         writeable::to_string_or_borrow(self, self.src.as_bytes())
+    }
+}
+
+#[cfg(feature = "write16")]
+impl<'a, const IS_TITLE_CONTEXT: bool> FullCaseWriteable<'a, '_, IS_TITLE_CONTEXT, [u16]> {
+    pub(crate) fn write_to<W: write16::Write16 + ?Sized>(&self, sink: &mut W) -> fmt::Result {
+        sink.size_hint(self.src.len())?;
+        self.write_to_sink(&mut Write16Adapter(sink))
     }
 }
 
@@ -223,10 +247,14 @@ impl<'data> CaseMap<'data> {
     // IS_TITLE_CONTEXT must be true if kind is MappingKind::Title
     // The kind may be a different kind with IS_TITLE_CONTEXT still true because
     // titlecasing a segment involves switching to lowercase later
-    fn full_helper<const IS_TITLE_CONTEXT: bool, W: fmt::Write + ?Sized>(
+    fn full_helper<
+        const IS_TITLE_CONTEXT: bool,
+        W: fmt::Write + ?Sized,
+        S: CaseMapTarget + ?Sized,
+    >(
         &self,
         c: char,
-        context: ContextIterator,
+        context: ContextIterator<S>,
         locale: CaseMapLocale,
         kind: MappingKind,
         sink: &mut W,
@@ -355,11 +383,13 @@ impl<'data> CaseMap<'data> {
             if exception.bits.has_conditional_special()
                 && let Some(special) = match kind {
                     MappingKind::Lower => {
-                        self.full_lower_special_case::<IS_TITLE_CONTEXT>(c, context, locale)
+                        self.full_lower_special_case::<IS_TITLE_CONTEXT, S>(c, context, locale)
                     }
                     MappingKind::Fold => self.full_fold_special_case(c, context, locale),
                     MappingKind::Upper | MappingKind::Title => self
-                        .full_upper_or_title_special_case::<IS_TITLE_CONTEXT>(c, context, locale),
+                        .full_upper_or_title_special_case::<IS_TITLE_CONTEXT, S>(
+                            c, context, locale,
+                        ),
                 }
             {
                 return special.write_to(sink);
@@ -416,10 +446,10 @@ impl<'data> CaseMap<'data> {
         }
     }
 
-    fn full_lower_special_case<const IS_TITLE_CONTEXT: bool>(
+    fn full_lower_special_case<const IS_TITLE_CONTEXT: bool, S: CaseMapTarget + ?Sized>(
         &self,
         c: char,
-        context: ContextIterator,
+        context: ContextIterator<S>,
         locale: CaseMapLocale,
     ) -> Option<FullMappingResult<'_>> {
         if locale == CaseMapLocale::Lithuanian {
@@ -486,10 +516,10 @@ impl<'data> CaseMap<'data> {
         None
     }
 
-    fn full_upper_or_title_special_case<const IS_TITLE_CONTEXT: bool>(
+    fn full_upper_or_title_special_case<const IS_TITLE_CONTEXT: bool, S: CaseMapTarget + ?Sized>(
         &self,
         c: char,
-        context: ContextIterator,
+        context: ContextIterator<S>,
         locale: CaseMapLocale,
     ) -> Option<FullMappingResult<'_>> {
         if locale == CaseMapLocale::Turkish && c == 'i' {
@@ -516,10 +546,10 @@ impl<'data> CaseMap<'data> {
         None
     }
 
-    fn full_fold_special_case(
+    fn full_fold_special_case<S: CaseMapTarget + ?Sized>(
         &self,
         c: char,
-        _context: ContextIterator,
+        _context: ContextIterator<S>,
         locale: CaseMapLocale,
     ) -> Option<FullMappingResult<'_>> {
         let is_turkic = locale == CaseMapLocale::Turkish;
@@ -538,17 +568,21 @@ impl<'data> CaseMap<'data> {
     /// to avoid perf impacts on other more common modes of operation
     ///
     /// `titlecase_tail_casing` is only read in `IS_TITLE_CONTEXT`
-    pub(crate) fn full_helper_writeable<'a: 'data, const IS_TITLE_CONTEXT: bool>(
+    pub(crate) fn full_helper_writeable<
+        'a: 'data,
+        const IS_TITLE_CONTEXT: bool,
+        S: CaseMapTarget + ?Sized,
+    >(
         &'data self,
-        src: &'a str,
+        src: &'a S,
         locale: CaseMapLocale,
         mapping: MappingKind,
         titlecase_tail_casing: TrailingCase,
-    ) -> FullCaseWriteable<'a, 'data, IS_TITLE_CONTEXT> {
+    ) -> FullCaseWriteable<'a, 'data, IS_TITLE_CONTEXT, S> {
         // Ensure that they are either both true or both false
         debug_assert!(IS_TITLE_CONTEXT == (mapping == MappingKind::Title));
 
-        FullCaseWriteable::<IS_TITLE_CONTEXT> {
+        FullCaseWriteable::<IS_TITLE_CONTEXT, S> {
             data: self,
             src,
             locale,
@@ -719,35 +753,128 @@ impl Writeable for FullMappingResult<'_> {
     }
 }
 
-pub(crate) struct ContextIterator<'a> {
-    before: &'a str,
-    after: &'a str,
+pub(crate) trait CaseMapSink<S: ?Sized>: fmt::Write {
+    fn write_slice(&mut self, s: &S) -> fmt::Result;
 }
 
-impl<'a> ContextIterator<'a> {
+impl<W: fmt::Write + ?Sized> CaseMapSink<str> for W {
+    #[inline]
+    fn write_slice(&mut self, s: &str) -> fmt::Result {
+        self.write_str(s)
+    }
+}
+
+#[cfg(feature = "write16")]
+struct Write16Adapter<'a, W: ?Sized>(&'a mut W);
+
+#[cfg(feature = "write16")]
+impl<W: write16::Write16 + ?Sized> fmt::Write for Write16Adapter<'_, W> {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        for c in s.chars() {
+            self.0.write_char(c)?;
+        }
+        Ok(())
+    }
+    #[inline]
+    fn write_char(&mut self, c: char) -> fmt::Result {
+        self.0.write_char(c)
+    }
+}
+
+#[cfg(feature = "write16")]
+impl<W: write16::Write16 + ?Sized> CaseMapSink<[u16]> for Write16Adapter<'_, W> {
+    #[inline]
+    fn write_slice(&mut self, s: &[u16]) -> fmt::Result {
+        self.0.write_slice(s)
+    }
+}
+
+pub(crate) trait CaseMapTarget:
+    core::ops::Index<core::ops::RangeTo<usize>, Output = Self>
+    + core::ops::Index<core::ops::RangeFrom<usize>, Output = Self>
+    + core::ops::Index<core::ops::Range<usize>, Output = Self>
+{
+    type Chars<'a>: Iterator<Item = char> + DoubleEndedIterator + Clone
+    where
+        Self: 'a;
+
+    fn chars(&self) -> Self::Chars<'_>;
+    fn chars_rest<'a>(chars: &Self::Chars<'a>) -> &'a Self;
+    fn char_indices(&self) -> impl Iterator<Item = (usize, Option<char>)>;
+}
+
+impl CaseMapTarget for str {
+    type Chars<'a> = core::str::Chars<'a>;
+
+    #[inline]
+    fn chars(&self) -> Self::Chars<'_> {
+        str::chars(self)
+    }
+    #[inline]
+    fn chars_rest<'a>(chars: &Self::Chars<'a>) -> &'a Self {
+        chars.as_str()
+    }
+    #[inline]
+    fn char_indices(&self) -> impl Iterator<Item = (usize, Option<char>)> {
+        str::char_indices(self).map(|(i, c)| (i, Some(c)))
+    }
+}
+
+#[cfg(feature = "write16")]
+impl CaseMapTarget for [u16] {
+    type Chars<'a> = utf16_iter::Utf16Chars<'a>;
+
+    #[inline]
+    fn chars(&self) -> Self::Chars<'_> {
+        utf16_iter::Utf16Chars::new(self)
+    }
+    #[inline]
+    fn chars_rest<'a>(chars: &Self::Chars<'a>) -> &'a Self {
+        chars.as_slice()
+    }
+    #[inline]
+    fn char_indices(&self) -> impl Iterator<Item = (usize, Option<char>)> {
+        utf16_iter::ErrorReportingUtf16CharIndices::new(self).map(|(i, c)| (i, c.ok()))
+    }
+}
+
+pub(crate) struct ContextIterator<'a, S: ?Sized = str> {
+    before: &'a S,
+    after: &'a S,
+}
+
+impl<S: ?Sized> Copy for ContextIterator<'_, S> {}
+impl<S: ?Sized> Clone for ContextIterator<'_, S> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<'a, S: CaseMapTarget + ?Sized> ContextIterator<'a, S> {
     // Returns a context iterator with the characters before
     // and after the character at a given index, given the preceding
     // string and the succeeding string including the character itself
-    pub fn new(before: &'a str, char_and_after: &'a str) -> Self {
+    pub fn new(before: &'a S, char_and_after: &'a S) -> Self {
         let mut char_and_after = char_and_after.chars();
         char_and_after.next(); // skip the character itself
-        let after = char_and_after.as_str();
+        let after = S::chars_rest(&char_and_after);
         Self { before, after }
     }
 
     fn add_greek_diacritics(&self, mut diacritics: GreekDiacritics) -> GreekDiacritics {
-        diacritics.consume_greek_diacritics(self.after);
+        diacritics.consume_greek_diacritics(self.after.chars());
         diacritics
     }
 
     fn preceded_by_greek_letter(&self) -> bool {
-        greek_to_me::preceded_by_greek_letter(self.before)
+        greek_to_me::preceded_by_greek_letter(self.before.chars().rev())
     }
 
     fn preceding_greek_vowel_diacritics(
         &self,
     ) -> Option<GreekCombiningCharacterSequenceDiacritics> {
-        greek_to_me::preceding_greek_vowel_diacritics(self.before)
+        greek_to_me::preceding_greek_vowel_diacritics(self.before.chars().rev())
     }
 
     fn preceded_by_soft_dotted(&self, mapping: &CaseMap) -> bool {
@@ -825,9 +952,9 @@ impl<'a> ContextIterator<'a> {
 
 /// Data on an i, I, í, or Í at the beginning of a string
 #[derive(PartialEq, Eq, Debug, Clone)]
-struct DutchIData<'a> {
+struct DutchIData<'a, S: ?Sized = str> {
     /// The rest of the string after this i
-    rest: &'a str,
+    rest: &'a S,
     has_acute: bool,
     // Number of code points consumed.
     char_count: usize,
@@ -835,17 +962,17 @@ struct DutchIData<'a> {
 
 /// Is there an i at the beginning of the string which may be relevant
 /// for Dutch titlecasing?
-fn dutch_i_at_beginning(s: &'_ str) -> Option<DutchIData<'_>> {
+fn dutch_i_at_beginning<S: CaseMapTarget + ?Sized>(s: &'_ S) -> Option<DutchIData<'_, S>> {
     let mut chars = s.chars();
     match chars.next() {
         Some('i') | Some('I') => {
-            let rest = chars.as_str();
+            let rest = S::chars_rest(&chars);
             match chars.next() {
                 Some(ACUTE) => {
                     // We have consumed an i and an acute accent.
                     // So chars.as_str() will have the rest of the string
                     Some(DutchIData {
-                        rest: chars.as_str(),
+                        rest: S::chars_rest(&chars),
                         has_acute: true,
                         char_count: 2,
                     })
@@ -864,7 +991,7 @@ fn dutch_i_at_beginning(s: &'_ str) -> Option<DutchIData<'_>> {
         // We have consumed an i and an acute accent.
         // So chars.as_str() will have the rest of the string
         Some('í') | Some('Í') => Some(DutchIData {
-            rest: chars.as_str(),
+            rest: S::chars_rest(&chars),
             has_acute: true,
             char_count: 1,
         }),
@@ -881,7 +1008,10 @@ fn dutch_i_at_beginning(s: &'_ str) -> Option<DutchIData<'_>> {
 ///
 /// In dutch titlecasing mode, the first N characters should be uppercased:
 /// `ijabc` should titlecase to `IJabc`.
-fn dutch_ij_pair_at_beginning_count(s: &str, mapping: &CaseMap) -> Option<usize> {
+fn dutch_ij_pair_at_beginning_count<S: CaseMapTarget + ?Sized>(
+    s: &S,
+    mapping: &CaseMap,
+) -> Option<usize> {
     let i_at_beginning = dutch_i_at_beginning(s)?;
 
     let mut chars = i_at_beginning.rest.chars();

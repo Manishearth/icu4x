@@ -251,8 +251,8 @@ pub use crate::diacritics;
 impl GreekDiacritics {
     /// Whilst forwards-iterating from an existing character,
     /// consume all further greek diacritics and store their existence into this struct.
-    pub(crate) fn consume_greek_diacritics(&mut self, context_after: &str) {
-        for c in context_after.chars() {
+    pub(crate) fn consume_greek_diacritics(&mut self, context_after: impl Iterator<Item = char>) {
+        for c in context_after {
             match c {
                 diacritics!(ACCENTS) => self.accented = true,
                 DIALYTIKA_TONOS => {
@@ -269,9 +269,9 @@ impl GreekDiacritics {
     }
 }
 
-/// Given the context before a character, check if it is preceded by a Greek letter.
-pub(crate) fn preceded_by_greek_letter(context_before: &str) -> bool {
-    for c in context_before.chars().rev() {
+/// Given the reversed context before a character, check if it is preceded by a Greek letter.
+pub(crate) fn preceded_by_greek_letter(context_before: impl Iterator<Item = char>) -> bool {
+    for c in context_before {
         match c {
             diacritics!(ACCENTS | BREATHING_AND_LENGTH | DIALYTIKA_ALL | YPOGEGRAMMENI) => continue,
             _ => return get_data(c).is_some(),
@@ -281,12 +281,12 @@ pub(crate) fn preceded_by_greek_letter(context_before: &str) -> bool {
 }
 
 /// Returns diacritic information for the combining character sequence preceding the current character
-/// if it that preceding combining character sequence is a greek vowel.
+/// if that preceding combining character sequence is a greek vowel.
 pub(crate) fn preceding_greek_vowel_diacritics(
-    context_before: &str,
+    context_before: impl Iterator<Item = char>,
 ) -> Option<GreekCombiningCharacterSequenceDiacritics> {
     let mut combining: GreekDiacritics = Default::default();
-    for c in context_before.chars().rev() {
+    for c in context_before {
         match c {
             diacritics!(ACCENTS) => combining.accented = true,
             diacritics!(DIALYTIKA_TONOS) => {

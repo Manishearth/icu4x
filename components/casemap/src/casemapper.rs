@@ -113,7 +113,7 @@ impl<'a> CaseMapperBorrowed<'a> {
         src: &'a str,
         langid: &LanguageIdentifier,
     ) -> impl Writeable + 'a + use<'a> {
-        self.data.full_helper_writeable::<false>(
+        self.data.full_helper_writeable::<false, _>(
             src,
             CaseMapLocale::from_langid(langid),
             MappingKind::Lower,
@@ -133,7 +133,7 @@ impl<'a> CaseMapperBorrowed<'a> {
         src: &'a str,
         langid: &LanguageIdentifier,
     ) -> impl Writeable + 'a + use<'a> {
-        self.data.full_helper_writeable::<false>(
+        self.data.full_helper_writeable::<false, _>(
             src,
             CaseMapLocale::from_langid(langid),
             MappingKind::Upper,
@@ -202,7 +202,7 @@ impl<'a> CaseMapperBorrowed<'a> {
             }
             LeadingAdjustment::None => ("", src),
         };
-        let writeable = self.data.full_helper_writeable::<true>(
+        let writeable = self.data.full_helper_writeable::<true, _>(
             rest,
             CaseMapLocale::from_langid(langid),
             MappingKind::Title,
@@ -221,7 +221,7 @@ impl<'a> CaseMapperBorrowed<'a> {
     /// See [`Self::fold_string()`] for the equivalent convenience function that returns a string,
     /// as well as for an example.
     pub fn fold(self, src: &'a str) -> impl Writeable + 'a {
-        self.data.full_helper_writeable::<false>(
+        self.data.full_helper_writeable::<false, _>(
             src,
             CaseMapLocale::Root,
             MappingKind::Fold,
@@ -238,7 +238,7 @@ impl<'a> CaseMapperBorrowed<'a> {
     /// See [`Self::fold_turkic_string()`] for the equivalent convenience function that returns a string,
     /// as well as for an example.
     pub fn fold_turkic(self, src: &'a str) -> impl Writeable + 'a {
-        self.data.full_helper_writeable::<false>(
+        self.data.full_helper_writeable::<false, _>(
             src,
             CaseMapLocale::Turkish,
             MappingKind::Fold,
@@ -605,6 +605,58 @@ impl<'a> CaseMapperBorrowed<'a> {
         self.data
             .simple_fold(c, FoldOptions::with_turkic_mappings())
     }
+
+    /// Writes the full lowercase mapping of the given UTF-16 slice into a [`Write16`](write16::Write16) sink.
+    ///
+    /// This function is context and language sensitive. Callers should pass the text's language
+    /// as a `LanguageIdentifier` (usually the `id` field of the `Locale`) if available, or
+    /// `Default::default()` for the root locale.
+    ///
+    /// Unpaired surrogates are passed through unchanged.
+    ///
+    /// ✨ *Enabled with the `write16` Cargo feature.*
+    #[cfg(feature = "write16")]
+    pub fn lowercase_utf16_to<W: write16::Write16 + ?Sized>(
+        self,
+        src: &[u16],
+        langid: &LanguageIdentifier,
+        sink: &mut W,
+    ) -> core::fmt::Result {
+        self.data
+            .full_helper_writeable::<false, _>(
+                src,
+                CaseMapLocale::from_langid(langid),
+                MappingKind::Lower,
+                TrailingCase::default(),
+            )
+            .write_to(sink)
+    }
+
+    /// Writes the full uppercase mapping of the given UTF-16 slice into a [`Write16`](write16::Write16) sink.
+    ///
+    /// This function is context and language sensitive. Callers should pass the text's language
+    /// as a `LanguageIdentifier` (usually the `id` field of the `Locale`) if available, or
+    /// `Default::default()` for the root locale.
+    ///
+    /// Unpaired surrogates are passed through unchanged.
+    ///
+    /// ✨ *Enabled with the `write16` Cargo feature.*
+    #[cfg(feature = "write16")]
+    pub fn uppercase_utf16_to<W: write16::Write16 + ?Sized>(
+        self,
+        src: &[u16],
+        langid: &LanguageIdentifier,
+        sink: &mut W,
+    ) -> core::fmt::Result {
+        self.data
+            .full_helper_writeable::<false, _>(
+                src,
+                CaseMapLocale::from_langid(langid),
+                MappingKind::Upper,
+                TrailingCase::default(),
+            )
+            .write_to(sink)
+    }
 }
 
 impl CaseMapper {
@@ -810,5 +862,63 @@ mod tests {
         assert_eq!(case_mapping.fold_string("ꭰ"), "Ꭰ");
         assert_eq!(case_mapping.fold_turkic_string("Ꭰ"), "Ꭰ");
         assert_eq!(case_mapping.fold_turkic_string("ꭰ"), "Ꭰ");
+    }
+
+    #[cfg(feature = "write16")]
+    #[test]
+    fn test_utf16_mapping() {
+        let cm = CaseMapper::new();
+        let root = langid!("und");
+        let tr = langid!("tr");
+        let lt = langid!("lt");
+        let el = langid!("el");
+
+        // Turkish
+        let mut buf = Vec::new();
+        cm.lowercase_utf16_to(&[0x0130, 0x0049], &tr, &mut buf)
+            .unwrap();
+        assert_eq!(buf, &[0x0069, 0x0131]);
+
+        buf.clear();
+        cm.uppercase_utf16_to(&[0x0069, 0x0131], &tr, &mut buf)
+            .unwrap();
+        assert_eq!(buf, &[0x0130, 0x0049]);
+
+        // Lithuanian soft-dotted + acute (i + U+0307 + U+0301 <-> I + U+0301)
+        buf.clear();
+        cm.lowercase_utf16_to(&[0x0049, 0x0301], &lt, &mut buf)
+            .unwrap();
+        assert_eq!(buf, &[0x0069, 0x0307, 0x0301]);
+
+        buf.clear();
+        cm.uppercase_utf16_to(&[0x0069, 0x0307, 0x0301], &lt, &mut buf)
+            .unwrap();
+        assert_eq!(buf, &[0x0049, 0x0301]);
+
+        // Greek final sigma and uppercasing (including dialytika insertion after accented vowel)
+        let greek_in: Vec<u16> = "ΙΙΙΣ".encode_utf16().collect();
+        let greek_lower: Vec<u16> = "ιιις".encode_utf16().collect();
+        buf.clear();
+        cm.lowercase_utf16_to(&greek_in, &el, &mut buf).unwrap();
+        assert_eq!(buf, greek_lower);
+
+        let greek_accent_in: Vec<u16> = "άέήίόύώ".encode_utf16().collect();
+        let greek_accent_upper: Vec<u16> = "ΑΕΗΪΟΫΩ".encode_utf16().collect();
+        buf.clear();
+        cm.uppercase_utf16_to(&greek_accent_in, &el, &mut buf)
+            .unwrap();
+        assert_eq!(buf, greek_accent_upper);
+
+        // Unpaired surrogates (lone high 0xD800, lone low 0xDC00, high followed by non-surrogate)
+        // and supplementary cased letters (Deseret U+10400 <-> U+10428)
+        let unpaired_and_supp = [0xD800u16, 0x0041, 0xDC00, 0xD801, 0xDC00, 0xD83D];
+        buf.clear();
+        cm.lowercase_utf16_to(&unpaired_and_supp, &root, &mut buf)
+            .unwrap();
+        assert_eq!(buf, &[0xD800u16, 0x0061, 0xDC00, 0xD801, 0xDC28, 0xD83D]);
+
+        let mut upper_buf = Vec::new();
+        cm.uppercase_utf16_to(&buf, &root, &mut upper_buf).unwrap();
+        assert_eq!(upper_buf, unpaired_and_supp);
     }
 }

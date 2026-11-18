@@ -91,6 +91,8 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+#[cfg(feature = "unstable")]
+pub mod ecma;
 mod lazy_automaton;
 mod list_formatter;
 pub mod options;

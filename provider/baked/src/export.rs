@@ -772,13 +772,19 @@ impl DataExporter for BakedExporter {
                         #lookup
                     }
                 } else if is_root_only {
-                    let lookup = single_lookup(is_dry, quote!(req.id));
+                    let lookup = single_lookup(
+                        is_dry,
+                        quote!(icu_provider::DataIdentifierBorrowed::for_marker_attributes(
+                            req.id.marker_attributes
+                        )),
+                    );
                     quote! {
                         // we need to use fallback, but all values are for root locale, so we just go there directly
-                        let mut req = req;
-                        req.id.locale = Default::default();
-                        let metadata = #metadata_bake;
                         #lookup
+                        let mut metadata = #metadata_bake;
+                        if !req.id.locale.is_unknown() {
+                            metadata.locale = Some(Default::default());
+                        }
                     }
                 } else {
                     let fallback_setup = quote! {

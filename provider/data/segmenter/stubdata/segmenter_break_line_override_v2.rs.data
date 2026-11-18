@@ -36,10 +36,11 @@ macro_rules! __impl_segmenter_break_line_override_v2 {
         #[clippy::msrv = "1.88"]
         impl icu_provider::DataProvider<icu::segmenter::provider::SegmenterBreakLineOverrideV2> for $provider {
             fn load(&self, req: icu_provider::DataRequest) -> Result<icu_provider::DataResponse<icu::segmenter::provider::SegmenterBreakLineOverrideV2>, icu_provider::DataError> {
-                let mut req = req;
-                req.id.locale = Default::default();
-                let metadata = icu_provider::DataResponseMetadata::default().with_checksum(Self::SEGMENTER_BREAK_LINE_OVERRIDE_V2_CHECKSUM);
-                let Some(payload) = icu_provider::baked::DataStore::get(&Self::DATA_SEGMENTER_BREAK_LINE_OVERRIDE_V2, req.id, req.metadata.attributes_prefix_match) else { return Err(icu_provider::DataErrorKind::IdentifierNotFound.with_req(<icu::segmenter::provider::SegmenterBreakLineOverrideV2 as icu_provider::DataMarker>::INFO, req)) };
+                let Some(payload) = icu_provider::baked::DataStore::get(&Self::DATA_SEGMENTER_BREAK_LINE_OVERRIDE_V2, icu_provider::DataIdentifierBorrowed::for_marker_attributes(req.id.marker_attributes), req.metadata.attributes_prefix_match) else { return Err(icu_provider::DataErrorKind::IdentifierNotFound.with_req(<icu::segmenter::provider::SegmenterBreakLineOverrideV2 as icu_provider::DataMarker>::INFO, req)) };
+                let mut metadata = icu_provider::DataResponseMetadata::default().with_checksum(Self::SEGMENTER_BREAK_LINE_OVERRIDE_V2_CHECKSUM);
+                if !req.id.locale.is_unknown() {
+                    metadata.locale = Some(Default::default());
+                }
                 Ok(icu_provider::DataResponse { payload, metadata })
             }
         }

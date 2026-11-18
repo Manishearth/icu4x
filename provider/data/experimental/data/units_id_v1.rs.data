@@ -183,10 +183,11 @@ macro_rules! __impl_units_id_v1 {
         #[clippy::msrv = "1.88"]
         impl icu_provider::DataProvider<icu::experimental::measure::provider::UnitsIdV1> for $provider {
             fn load(&self, req: icu_provider::DataRequest) -> Result<icu_provider::DataResponse<icu::experimental::measure::provider::UnitsIdV1>, icu_provider::DataError> {
-                let mut req = req;
-                req.id.locale = Default::default();
-                let metadata = icu_provider::DataResponseMetadata::default();
-                let Some(payload) = icu_provider::baked::DataStore::get(&Self::DATA_UNITS_ID_V1, req.id, req.metadata.attributes_prefix_match) else { return Err(icu_provider::DataErrorKind::IdentifierNotFound.with_req(<icu::experimental::measure::provider::UnitsIdV1 as icu_provider::DataMarker>::INFO, req)) };
+                let Some(payload) = icu_provider::baked::DataStore::get(&Self::DATA_UNITS_ID_V1, icu_provider::DataIdentifierBorrowed::for_marker_attributes(req.id.marker_attributes), req.metadata.attributes_prefix_match) else { return Err(icu_provider::DataErrorKind::IdentifierNotFound.with_req(<icu::experimental::measure::provider::UnitsIdV1 as icu_provider::DataMarker>::INFO, req)) };
+                let mut metadata = icu_provider::DataResponseMetadata::default();
+                if !req.id.locale.is_unknown() {
+                    metadata.locale = Some(Default::default());
+                }
                 Ok(icu_provider::DataResponse { payload, metadata })
             }
         }

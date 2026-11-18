@@ -21,6 +21,9 @@ pub trait DataStore<M: DataMarker>: private::Sealed {
         attributes_prefix_match: bool,
     ) -> Option<DataPayload<M>>;
 
+    /// Check if a key is in the store without loading its value
+    fn contains(&self, req: DataIdentifierBorrowed, attributes_prefix_match: bool) -> bool;
+
     /// The type returned by the iterator
     ///
     /// ✨ *Enabled with the `alloc` Cargo feature.*

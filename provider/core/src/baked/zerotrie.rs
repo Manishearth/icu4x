@@ -118,6 +118,11 @@ impl<M: DataMarker> super::DataStore<M> for Data<M> {
             .map(DataPayload::from_static_ref)
     }
 
+    #[inline]
+    fn contains(&self, id: DataIdentifierBorrowed, attributes_prefix_match: bool) -> bool {
+        get_index(self.trie, id, attributes_prefix_match).is_some()
+    }
+
     #[cfg(feature = "alloc")]
     type IterReturn = core::iter::FilterMap<
         zerotrie::ZeroTrieStringIterator<'static>,
@@ -162,6 +167,11 @@ impl<M: DataMarker> super::DataStore<M> for DataRef<M> {
             .map(|i| unsafe { self.values.get_unchecked(i) })
             .copied()
             .map(DataPayload::from_static_ref)
+    }
+
+    #[inline]
+    fn contains(&self, id: DataIdentifierBorrowed, attributes_prefix_match: bool) -> bool {
+        get_index(self.trie, id, attributes_prefix_match).is_some()
     }
 
     #[cfg(feature = "alloc")]
@@ -228,6 +238,11 @@ where
             .map(DataPayload::from_owned)
     }
 
+    #[inline]
+    fn contains(&self, id: DataIdentifierBorrowed, attributes_prefix_match: bool) -> bool {
+        get_index(self.trie, id, attributes_prefix_match).is_some()
+    }
+
     #[cfg(feature = "alloc")]
     type IterReturn = core::iter::FilterMap<
         zerotrie::ZeroTrieStringIterator<'static>,
@@ -236,5 +251,63 @@ where
     #[cfg(feature = "alloc")]
     fn iter(&'static self) -> Self::IterReturn {
         iter(&self.trie)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::baked::DataStore;
+    use crate::hello_world::{HelloWorld, HelloWorldV1};
+    use alloc::{borrow::Cow, boxed::Box};
+    use icu_locale_core::data_locale;
+    use zerovec::vecs::VarZeroSlice32;
+
+    #[test]
+    fn test_datastore_contains() {
+        let trie = ZeroTrieSimpleAscii::from_iter([
+            (&b"de"[..], 0usize),
+            (&b"de\x1Ereverse"[..], 1usize),
+            (&b"und"[..], 0usize),
+        ]);
+        let trie =
+            ZeroTrieSimpleAscii::from_store(&*Box::leak(trie.into_store().into_boxed_slice()));
+        const VALS: &[HelloWorld<'static>] = &[
+            HelloWorld {
+                message: Cow::Borrowed("Hallo"),
+            },
+            HelloWorld {
+                message: Cow::Borrowed("ollaH"),
+            },
+        ];
+        const REFS: &[&HelloWorld<'static>] = &[&VALS[0], &VALS[1]];
+        let vzv = zerovec::VarZeroVec::<str, Index32>::from(&["Hallo", "ollaH"]);
+        let vzv = VarZeroSlice32::parse_bytes(Box::leak(vzv.as_bytes().into())).unwrap();
+
+        // SAFETY: All trie indices (0 and 1) are in bounds of the 2-element slices.
+        let data = unsafe { Data::<HelloWorldV1>::from_trie_and_values_unchecked(trie, VALS) };
+        // SAFETY: All trie indices (0 and 1) are in bounds of the 2-element slice.
+        let data_ref = unsafe { DataRef::<HelloWorldV1>::from_trie_and_refs_unchecked(trie, REFS) };
+        // SAFETY: All trie indices (0 and 1) are in bounds of the 2-element VarZeroSlice.
+        let varule =
+            unsafe { DataForVarULEs::<HelloWorldV1>::from_trie_and_values_unchecked(trie, vzv) };
+
+        for (loc, attr, prefix, expected) in [
+            (data_locale!("de"), "", false, true),
+            (data_locale!("und"), "", false, true),
+            (data_locale!("fr"), "", false, false),
+            (data_locale!("de"), "reverse", false, true),
+            (data_locale!("de"), "rev", false, false),
+            (data_locale!("de"), "rev", true, true),
+            (data_locale!("de"), "other", true, false),
+        ] {
+            let id = DataIdentifierBorrowed::for_marker_attributes_and_locale(
+                DataMarkerAttributes::from_str_or_panic(attr),
+                &loc,
+            );
+            assert_eq!(data.contains(id, prefix), expected);
+            assert_eq!(data_ref.contains(id, prefix), expected);
+            assert_eq!(varule.contains(id, prefix), expected);
+        }
     }
 }

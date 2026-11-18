@@ -1863,6 +1863,8 @@ dependencies = [
  "crlify",
  "databake",
  "heck 0.5.0",
+ "icu_locale_core",
+ "icu_locale_fallback",
  "icu_provider",
  "icu_provider_export",
  "icu_provider_registry",

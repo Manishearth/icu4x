@@ -53,7 +53,11 @@ macro_rules! __impl_hello_world_v1 {
         #[clippy::msrv = "1.88"]
         impl icu_provider::DryDataProvider<icu_provider::hello_world::HelloWorldV1> for $provider {
             fn dry_load(&self, req: icu_provider::DataRequest) -> Result<icu_provider::DataResponseMetadata, icu_provider::DataError> {
-                icu_provider::DataProvider::<icu_provider::hello_world::HelloWorldV1>::load(self, req).map(|r| r.metadata)
+                if !icu_provider::baked::DataStore::contains(&Self::DATA_HELLO_WORLD_V1, req.id, req.metadata.attributes_prefix_match) {
+                    return Err(icu_provider::DataErrorKind::IdentifierNotFound.with_req(<icu_provider::hello_world::HelloWorldV1 as icu_provider::DataMarker>::INFO, req));
+                }
+                let metadata = icu_provider::DataResponseMetadata::default().with_checksum(Self::HELLO_WORLD_V1_CHECKSUM);
+                Ok(metadata)
             }
         }
     };
@@ -62,7 +66,11 @@ macro_rules! __impl_hello_world_v1 {
         #[clippy::msrv = "1.88"]
         impl icu_provider::DryDataProvider<icu_provider::hello_world::HelloWorldV1> for $provider {
             fn dry_load(&self, req: icu_provider::DataRequest) -> Result<icu_provider::DataResponseMetadata, icu_provider::DataError> {
-                icu_provider::DataProvider::<icu_provider::hello_world::HelloWorldV1>::load(self, req).map(|r| r.metadata)
+                if !icu_provider::baked::DataStore::contains(&Self::DATA_HELLO_WORLD_V1, req.id, req.metadata.attributes_prefix_match) {
+                    return Err(icu_provider::DataErrorKind::IdentifierNotFound.with_req(<icu_provider::hello_world::HelloWorldV1 as icu_provider::DataMarker>::INFO, req));
+                }
+                let metadata = icu_provider::DataResponseMetadata::default().with_checksum(Self::HELLO_WORLD_V1_CHECKSUM);
+                Ok(metadata)
             }
         }
         #[clippy::msrv = "1.88"]

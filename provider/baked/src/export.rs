@@ -739,51 +739,103 @@ impl DataExporter for BakedExporter {
 
             dependencies.insert("icu_provider/baked");
 
-            let search = if !self.use_internal_fallback {
-                quote! {
-                    let metadata = #metadata_bake;
-                    let Some(payload) = icu_provider::baked::DataStore::get(&Self::#data_ident, req.id, req.metadata.attributes_prefix_match) else {
-                        return Err(icu_provider::DataErrorKind::IdentifierNotFound.with_req(<#marker_bake as icu_provider::DataMarker>::INFO, req))
-                    };
-                }
-            } else if deduplicated_values
+            let is_root_only = deduplicated_values
                 .iter()
-                .all(|(_, ids)| ids.iter().all(|id| id.locale.is_unknown()))
-            {
-                quote! {
-                    // we need to use fallback, but all values are for root locale, so we just go there directly
-                    let mut req = req;
-                    req.id.locale = Default::default();
-                    let metadata = #metadata_bake;
-                    let Some(payload) = icu_provider::baked::DataStore::get(&Self::#data_ident, req.id, req.metadata.attributes_prefix_match) else {
-                        return Err(icu_provider::DataErrorKind::IdentifierNotFound.with_req(<#marker_bake as icu_provider::DataMarker>::INFO, req))
-                    };
-                }
-            } else {
+                .all(|(_, ids)| ids.iter().all(|id| id.locale.is_unknown()));
+            if self.use_internal_fallback && !is_root_only {
                 dependencies.insert("icu_locale_fallback/compiled_data");
-                quote! {
-                    let mut metadata = #metadata_bake;
+            }
 
-                    let payload =  if let Some(payload) = icu_provider::baked::DataStore::get(&Self::#data_ident, req.id, req.metadata.attributes_prefix_match) {
-                        payload
-                    } else {
+            let not_found = quote! {
+                return Err(icu_provider::DataErrorKind::IdentifierNotFound.with_req(<#marker_bake as icu_provider::DataMarker>::INFO, req))
+            };
+            let single_lookup = |is_dry: bool, id: TokenStream| {
+                if is_dry {
+                    quote! {
+                        if !icu_provider::baked::DataStore::contains(&Self::#data_ident, #id, req.metadata.attributes_prefix_match) {
+                            #not_found;
+                        }
+                    }
+                } else {
+                    quote! {
+                        let Some(payload) = icu_provider::baked::DataStore::get(&Self::#data_ident, #id, req.metadata.attributes_prefix_match) else {
+                            #not_found
+                        };
+                    }
+                }
+            };
+            let make_search = |is_dry: bool| {
+                if !self.use_internal_fallback {
+                    let lookup = single_lookup(is_dry, quote!(req.id));
+                    quote! {
+                        let metadata = #metadata_bake;
+                        #lookup
+                    }
+                } else if is_root_only {
+                    let lookup = single_lookup(is_dry, quote!(req.id));
+                    quote! {
+                        // we need to use fallback, but all values are for root locale, so we just go there directly
+                        let mut req = req;
+                        req.id.locale = Default::default();
+                        let metadata = #metadata_bake;
+                        #lookup
+                    }
+                } else {
+                    let fallback_setup = quote! {
                         const FALLBACKER: icu_locale_fallback::LocaleFallbackerWithConfig<'static> =
                             icu_locale_fallback::LocaleFallbacker::new()
                                 .for_config(<#marker_bake as icu_provider::DataMarker>::INFO.fallback_config);
                         let mut fallback_iterator = FALLBACKER.fallback_for(req.id.locale.clone());
-                        loop {
-                            if let Some(payload) = icu_provider::baked::DataStore::get(&Self::#data_ident, icu_provider::DataIdentifierBorrowed::for_marker_attributes_and_locale(req.id.marker_attributes, fallback_iterator.get()), req.metadata.attributes_prefix_match) {
-                                metadata.locale = Some(fallback_iterator.take());
-                                break payload;
-                            }
-                            if fallback_iterator.get().is_unknown() {
-                                return Err(icu_provider::DataErrorKind::IdentifierNotFound.with_req(<#marker_bake as icu_provider::DataMarker>::INFO, req));
-                            }
-                            fallback_iterator.step();
-                        }
                     };
+                    let fallback_id = quote!(
+                        icu_provider::DataIdentifierBorrowed::for_marker_attributes_and_locale(
+                            req.id.marker_attributes,
+                            fallback_iterator.get()
+                        )
+                    );
+                    if is_dry {
+                        quote! {
+                            let mut metadata = #metadata_bake;
+                            if !icu_provider::baked::DataStore::contains(&Self::#data_ident, req.id, req.metadata.attributes_prefix_match) {
+                                #fallback_setup
+                                loop {
+                                    if icu_provider::baked::DataStore::contains(&Self::#data_ident, #fallback_id, req.metadata.attributes_prefix_match) {
+                                        metadata.locale = Some(fallback_iterator.take());
+                                        break;
+                                    }
+                                    if fallback_iterator.get().is_unknown() {
+                                        #not_found;
+                                    }
+                                    fallback_iterator.step();
+                                }
+                            }
+                        }
+                    } else {
+                        quote! {
+                            let mut metadata = #metadata_bake;
+
+                            let payload = if let Some(payload) = icu_provider::baked::DataStore::get(&Self::#data_ident, req.id, req.metadata.attributes_prefix_match) {
+                                payload
+                            } else {
+                                #fallback_setup
+                                loop {
+                                    if let Some(payload) = icu_provider::baked::DataStore::get(&Self::#data_ident, #fallback_id, req.metadata.attributes_prefix_match) {
+                                        metadata.locale = Some(fallback_iterator.take());
+                                        break payload;
+                                    }
+                                    if fallback_iterator.get().is_unknown() {
+                                        #not_found;
+                                    }
+                                    fallback_iterator.step();
+                                }
+                            };
+                        }
+                    }
                 }
             };
+
+            let search = make_search(false);
+            let dry_search = metadata.supports_dry_provider.then(|| make_search(true));
 
             self.write_impl_macros(
                 marker,
@@ -810,18 +862,17 @@ impl DataExporter for BakedExporter {
                         }
                     }
                 },
-                if metadata.supports_dry_provider {
-                    Some(quote! {
+                dry_search.map(|dry_search| {
+                    quote! {
                         #maybe_msrv
                         impl icu_provider::DryDataProvider<#marker_bake> for $provider {
                             fn dry_load(&self, req: icu_provider::DataRequest) -> Result<icu_provider::DataResponseMetadata, icu_provider::DataError> {
-                                icu_provider::DataProvider::<#marker_bake>::load(self, req).map(|r| r.metadata)
+                                #dry_search
+                                Ok(metadata)
                             }
                         }
-                    })
-                } else {
-                    None
-                },
+                    }
+                }),
                 quote! {
                     #maybe_msrv
                     impl icu_provider::IterableDataProvider<#marker_bake> for $provider {

@@ -27,6 +27,8 @@ heck = { workspace = true }
 zerotrie = { workspace = true, features = ["databake"] }
 
 [dev-dependencies]
+icu_locale_core = { workspace = true }
+icu_locale_fallback = { workspace = true, features = ["compiled_data"] }
 icu_provider_export = { path = "../export" }
 zerovec = { workspace = true }
 

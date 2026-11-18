@@ -60,49 +60,37 @@ fn prefix_match() {
         "ja".parse().unwrap(),
     );
 
-    assert!(
-        DataProvider::<HelloWorldV1>::load(
-            &Baked,
-            DataRequest {
-                id: id.as_borrowed(),
-                ..Default::default()
-            }
-        )
-        .is_err()
-    );
+    let req = DataRequest {
+        id: id.as_borrowed(),
+        ..Default::default()
+    };
+    assert!(DataProvider::<HelloWorldV1>::load(&Baked, req).is_err());
+    assert!(DryDataProvider::<HelloWorldV1>::dry_load(&Baked, req).is_err());
 
-    assert!(
-        DataProvider::<HelloWorldV1>::load(
-            &Baked,
-            DataRequest {
-                id: id.as_borrowed(),
-                metadata: {
-                    let mut metadata = DataRequestMetadata::default();
-                    metadata.attributes_prefix_match = true;
-                    metadata
-                }
-            }
-        )
-        .is_ok()
-    );
+    let req = DataRequest {
+        id: id.as_borrowed(),
+        metadata: {
+            let mut metadata = DataRequestMetadata::default();
+            metadata.attributes_prefix_match = true;
+            metadata
+        },
+    };
+    assert!(DataProvider::<HelloWorldV1>::load(&Baked, req).is_ok());
+    assert!(DryDataProvider::<HelloWorldV1>::dry_load(&Baked, req).is_ok());
 
     let id = DataIdentifierCow::from_owned(
         DataMarkerAttributes::from_str_or_panic("non-existent").to_owned(),
         "ja".parse().unwrap(),
     );
 
-    assert!(
-        DataProvider::<HelloWorldV1>::load(
-            &Baked,
-            DataRequest {
-                id: id.as_borrowed(),
-                metadata: {
-                    let mut metadata = DataRequestMetadata::default();
-                    metadata.attributes_prefix_match = true;
-                    metadata
-                }
-            }
-        )
-        .is_err()
-    );
+    let req = DataRequest {
+        id: id.as_borrowed(),
+        metadata: {
+            let mut metadata = DataRequestMetadata::default();
+            metadata.attributes_prefix_match = true;
+            metadata
+        },
+    };
+    assert!(DataProvider::<HelloWorldV1>::load(&Baked, req).is_err());
+    assert!(DryDataProvider::<HelloWorldV1>::dry_load(&Baked, req).is_err());
 }

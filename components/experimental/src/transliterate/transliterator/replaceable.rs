@@ -269,12 +269,15 @@ impl<'a> Replaceable<'a> {
         }
     }
 
-    // Thought: could replace the F generic with a InternalTransliteratorTrait generic, but this is fine?
     /// Applies `f` to each sub-run as defined by `filter` of the current `Replaceable`'s run.
     pub(crate) fn for_each_run<F>(&mut self, filter: &Filter, mut f: F)
     where
         F: FnMut(&mut Replaceable),
     {
+        self.for_each_run_dyn(filter, &mut f);
+    }
+
+    fn for_each_run_dyn(&mut self, filter: &Filter, f: &mut dyn FnMut(&mut Replaceable)) {
         // sub-runs must be part of *self*'s run, so we can only start in our modifiable range.
         let mut start = self.freeze_pre_len;
         // SAFETY: start is always the result of a function returning valid UTF-8 indices
@@ -285,7 +288,7 @@ impl<'a> Replaceable<'a> {
     }
 
     /// Initiate the matching process for a single rule, starting at the current cursor.
-    pub(super) fn start_match(&mut self) -> RepMatcher<'a, '_, false> {
+    pub(super) fn start_match(&mut self) -> RepMatcher<'a, '_> {
         let cursor = self.cursor;
         RepMatcher {
             rep: self,
@@ -293,6 +296,7 @@ impl<'a> Replaceable<'a> {
             forward_cursor: cursor,
             ante_match_len: 0,
             post_match_len: 0,
+            key_finished: false,
         }
     }
 
@@ -326,9 +330,9 @@ impl<'a> Replaceable<'a> {
             run_start = start;
             run_end = self.allowed_upper_bound();
         } else {
-            run_start = self.find_first_char_in_modifiable_range(start, |c| filter.contains(c))?;
+            run_start = self.find_first_char_in_modifiable_range(start, filter, true)?;
             run_end = self
-                .find_first_char_in_modifiable_range(run_start, |c| !filter.contains(c))
+                .find_first_char_in_modifiable_range(run_start, filter, false)
                 .unwrap_or_else(|| self.allowed_upper_bound());
         }
 
@@ -345,17 +349,21 @@ impl<'a> Replaceable<'a> {
         })
     }
 
-    /// Returns the index of the first char in the modifiable text that satisfies `f`,
+    /// Returns the index of the first char in the modifiable text matching (or not matching) `filter`,
     /// starting at index `start`. The returned index is guaranteed to be a valid UTF-8 index
     /// into the internal text.
     ///
     /// `start` must be a valid UTF-8 index into into the internal text.
-    fn find_first_char_in_modifiable_range<F>(&self, start: usize, f: F) -> Option<usize>
-    where
-        F: Fn(char) -> bool,
-    {
+    fn find_first_char_in_modifiable_range(
+        &self,
+        start: usize,
+        filter: &Filter,
+        expected: bool,
+    ) -> Option<usize> {
         let tail = &self.as_str()[start..self.allowed_upper_bound()];
-        let (idx, _) = tail.char_indices().find(|&(_, c)| f(c))?;
+        let (idx, _) = tail
+            .char_indices()
+            .find(|&(_, c)| filter.contains(c) == expected)?;
         Some(start + idx)
     }
 
@@ -398,7 +406,8 @@ impl Debug for Replaceable<'_> {
 /// 2. Matching the key. This is a left-aligned (forward) match at the `Replaceable`'s cursor.
 /// 3. Matching the post. This is a left-aligned (forward) match at the end of _the matched key_.
 ///    Note that this means we _cannot_ match the key after the post, as the post match is aligned
-///    to the end of the key match. The `KEY_FINISHED` parameter enforces this at compile-time.
+///    to the end of the key match. [`RepMatcher::finish_key`] switches from key matching to post
+///    matching.
 ///
 /// After a successful match, the replacement can be applied using the [`Insertable`] returned by
 /// [`RepMatcher::finish_match`].
@@ -410,18 +419,23 @@ impl Debug for Replaceable<'_> {
 ///
 /// The `RepMatcher` does not modify the contained `Replaceable`.
 #[derive(Debug)]
-pub(super) struct RepMatcher<'a, 'b, const KEY_FINISHED: bool> {
+pub(super) struct RepMatcher<'a, 'b> {
     rep: &'b mut Replaceable<'a>,
     key_match_len: usize,  // relative to rep.cursor
     ante_match_len: usize, // relative to rep.cursor
     post_match_len: usize, // relative to rep.cursor + key_match_len
     forward_cursor: usize, // absolute
+    key_finished: bool,
 }
 
-// we can only finish a KEY_FINISHED = true matcher
-impl<'a, 'b> RepMatcher<'a, 'b, true> {
+impl<'a, 'b> RepMatcher<'a, 'b> {
     pub(super) fn finish_match(self) -> Insertable<'a, 'b> {
         Insertable::from_matcher(self)
+    }
+
+    pub(super) fn finish_key(&mut self) {
+        debug_assert!(!self.key_finished);
+        self.key_finished = true;
     }
 
     fn match_lens(&self) -> MatchLengths {
@@ -431,28 +445,9 @@ impl<'a, 'b> RepMatcher<'a, 'b, true> {
             post: self.post_match_len,
         }
     }
-}
 
-// we can only finish matching the key once
-impl<'a, 'b> RepMatcher<'a, 'b, false> {
-    pub(super) fn finish_match(self) -> Insertable<'a, 'b> {
-        Insertable::from_matcher(self.finish_key())
-    }
-
-    pub(super) fn finish_key(self) -> RepMatcher<'a, 'b, true> {
-        RepMatcher {
-            rep: self.rep,
-            key_match_len: self.key_match_len,
-            ante_match_len: self.ante_match_len,
-            post_match_len: self.post_match_len,
-            forward_cursor: self.forward_cursor,
-        }
-    }
-}
-
-impl<const KEY_FINISHED: bool> RepMatcher<'_, '_, KEY_FINISHED> {
     fn remaining(&self) -> usize {
-        if KEY_FINISHED {
+        if self.key_finished {
             self.rep.content.len() - self.forward_cursor
         } else {
             self.rep.allowed_upper_bound() - self.forward_cursor
@@ -460,7 +455,7 @@ impl<const KEY_FINISHED: bool> RepMatcher<'_, '_, KEY_FINISHED> {
     }
 
     fn remaining_forward_slice(&self) -> &str {
-        if KEY_FINISHED {
+        if self.key_finished {
             &self.rep.as_str()[self.forward_cursor..]
         } else {
             &self.rep.as_str()[self.forward_cursor..self.rep.allowed_upper_bound()]
@@ -478,7 +473,7 @@ impl<const KEY_FINISHED: bool> RepMatcher<'_, '_, KEY_FINISHED> {
     }
 }
 
-impl<const KEY_FINISHED: bool> Utf8Matcher<Forward> for RepMatcher<'_, '_, KEY_FINISHED> {
+impl Utf8Matcher<Forward> for RepMatcher<'_, '_> {
     fn cursor(&self) -> usize {
         self.forward_cursor
     }
@@ -508,7 +503,7 @@ impl<const KEY_FINISHED: bool> Utf8Matcher<Forward> for RepMatcher<'_, '_, KEY_F
         if len <= self.remaining() {
             assert!(self.remaining_forward_slice().is_char_boundary(len));
             // SAFETY: `len` is guaranteed to be a valid UTF-8 length starting at `forward_cursor`.
-            if KEY_FINISHED {
+            if self.key_finished {
                 self.post_match_len += len;
             } else {
                 self.key_match_len += len;
@@ -526,7 +521,7 @@ impl<const KEY_FINISHED: bool> Utf8Matcher<Forward> for RepMatcher<'_, '_, KEY_F
 }
 
 // we can always reverse match, no matter if the key has finished matching or not
-impl<const KEY_FINISHED: bool> Utf8Matcher<Reverse> for RepMatcher<'_, '_, KEY_FINISHED> {
+impl Utf8Matcher<Reverse> for RepMatcher<'_, '_> {
     fn cursor(&self) -> usize {
         self.ante_cursor()
     }
@@ -691,7 +686,7 @@ pub(crate) struct Insertable<'a, 'b> {
 }
 
 impl<'a, 'b> Insertable<'a, 'b> {
-    fn from_matcher(matcher: RepMatcher<'a, 'b, true>) -> Insertable<'a, 'b> {
+    fn from_matcher(matcher: RepMatcher<'a, 'b>) -> Insertable<'a, 'b> {
         let match_lens = matcher.match_lens();
         // SAFETY: RepMatcher does not modify the `Replaceable`.
         // This is the start of the range we want to replace.

@@ -495,11 +495,12 @@ impl Transliterator {
     #[cfg(feature = "compiled_data")]
     #[allow(unused_qualifications)]
     pub fn try_new(locale: &Locale) -> Result<Self, DataError> {
-        Self::try_new_unstable(
+        Self::internal_try_new_with_override_unstable::<_, _, _, _, false, true>(
+            locale,
+            None::<&fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>>,
             &crate::provider::Baked,
             &icu_normalizer::provider::Baked,
             &icu_casemap::provider::Baked,
-            locale,
         )
     }
 
@@ -534,7 +535,7 @@ impl Transliterator {
             + DataProvider<NormalizerNfcV2>
             + ?Sized,
     {
-        Self::internal_try_new_with_override_unstable(
+        Self::internal_try_new_with_override_unstable::<_, _, _, _, false, false>(
             locale,
             None::<&fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>>,
             transliterator_provider,
@@ -590,12 +591,12 @@ impl Transliterator {
     where
         F: Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>,
     {
-        Self::try_new_with_override_unstable(
+        Self::internal_try_new_with_override_unstable::<_, _, _, _, true, true>(
+            locale,
+            Some(&lookup),
             &crate::provider::Baked,
             &icu_normalizer::provider::Baked,
             &icu_casemap::provider::Baked,
-            locale,
-            lookup,
         )
     }
 
@@ -637,7 +638,7 @@ impl Transliterator {
             + ?Sized,
         F: Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>,
     {
-        Self::internal_try_new_with_override_unstable(
+        Self::internal_try_new_with_override_unstable::<_, _, _, _, true, false>(
             locale,
             Some(&lookup),
             transliterator_provider,
@@ -646,7 +647,14 @@ impl Transliterator {
         )
     }
 
-    fn internal_try_new_with_override_unstable<PN, PT, PC, F>(
+    fn internal_try_new_with_override_unstable<
+        PN,
+        PT,
+        PC,
+        F,
+        const HAS_LOOKUP: bool,
+        const COMPILED_SPECIALS: bool,
+    >(
         locale: &Locale,
         lookup: Option<&F>,
         transliterator_provider: &PT,
@@ -665,10 +673,13 @@ impl Transliterator {
         F: Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>,
     {
         let mut env = LiteMap::new();
+        let mut locale_str = String::new();
+        let _ = writeable::Writeable::write_to(locale, &mut locale_str);
+        locale_str.make_ascii_lowercase();
 
-        let transliterator = Transliterator::load_rbt(
+        let transliterator = Transliterator::load_rbt::<_, _, _, _, HAS_LOOKUP, COMPILED_SPECIALS>(
             #[expect(clippy::unwrap_used)] // infallible
-            DataMarkerAttributes::try_from_str(&locale.to_string().to_ascii_lowercase()).unwrap(),
+            DataMarkerAttributes::try_from_str(&locale_str).unwrap(),
             lookup,
             transliterator_provider,
             normalizer_provider,
@@ -683,7 +694,7 @@ impl Transliterator {
         })
     }
 
-    fn load_rbt<PT, PN, PC, F>(
+    fn load_rbt<PT, PN, PC, F, const HAS_LOOKUP: bool, const COMPILED_SPECIALS: bool>(
         marker_attributes: &DataMarkerAttributes,
         lookup: Option<&F>,
         transliterator_provider: &PT,
@@ -718,12 +729,22 @@ impl Transliterator {
                 // Load the transliterator, by checking
                 let internal_t =
                     // a) hardcoded specials
-                    Transliterator::load_special(&dep, normalizer_provider, casemap_provider)
+                    Transliterator::load_special::<_, _, COMPILED_SPECIALS>(
+                        &dep,
+                        normalizer_provider,
+                        casemap_provider,
+                    )
                     // b) the user-provided override
-                    .or_else(|| Some(lookup?(&dep.parse().ok()?)?.map(InternalTransliterator::Dyn)))
+                    .or_else(|| {
+                        if HAS_LOOKUP {
+                            Some(lookup?(&dep.parse().ok()?)?.map(InternalTransliterator::Dyn))
+                        } else {
+                            None
+                        }
+                    })
                     // c) the data
                     .unwrap_or_else(|| {
-                        Transliterator::load_rbt(
+                        Transliterator::load_rbt::<_, _, _, _, HAS_LOOKUP, COMPILED_SPECIALS>(
                             #[expect(clippy::unwrap_used)] // infallible
                             DataMarkerAttributes::try_from_str(&dep.to_ascii_lowercase()).unwrap(),
                             lookup,
@@ -740,7 +761,56 @@ impl Transliterator {
         Ok(transliterator)
     }
 
-    fn load_special<PN, PD>(
+    fn load_builtin_special(special: &str) -> Option<InternalTransliterator> {
+        match special {
+            "any-null" => Some(InternalTransliterator::Null),
+            "any-remove" => Some(InternalTransliterator::Remove),
+            _ => {
+                let (prefix, suffix, min_length, case) = match special.strip_prefix("any-hex/")? {
+                    "unicode" => ("U+", "", 4, Case::Upper),
+                    "rust" => ("\\u{", "}", 2, Case::Lower),
+                    "xml" => ("&#x", ";", 1, Case::Upper),
+                    "perl" => ("\\x{", "}", 1, Case::Upper),
+                    "plain" => ("", "", 4, Case::Upper),
+                    _ => return None,
+                };
+                Some(InternalTransliterator::Hex(
+                    hardcoded::HexTransliterator::new(prefix, suffix, min_length, case),
+                ))
+            }
+        }
+    }
+
+    #[cfg(feature = "compiled_data")]
+    fn load_compiled_special(special: &str) -> Option<Result<InternalTransliterator, DataError>> {
+        if let Some(builtin) = Self::load_builtin_special(special) {
+            return Some(Ok(builtin));
+        }
+        // TODO(#3909, #3910): add more
+        match special {
+            "any-nfc" => Some(Ok(InternalTransliterator::Composing(
+                ComposingNormalizer::new_nfc().static_to_owned(),
+            ))),
+            "any-nfkc" => Some(Ok(InternalTransliterator::Composing(
+                ComposingNormalizer::new_nfkc().static_to_owned(),
+            ))),
+            "any-nfd" => Some(Ok(InternalTransliterator::Decomposing(
+                DecomposingNormalizer::new_nfd().static_to_owned(),
+            ))),
+            "any-nfkd" => Some(Ok(InternalTransliterator::Decomposing(
+                DecomposingNormalizer::new_nfkd().static_to_owned(),
+            ))),
+            "any-lower" => Some(Ok(InternalTransliterator::Lower(
+                CaseMapper::new().static_to_owned(),
+            ))),
+            "any-upper" => Some(Ok(InternalTransliterator::Upper(
+                CaseMapper::new().static_to_owned(),
+            ))),
+            _ => None,
+        }
+    }
+
+    fn load_special<PN, PD, const COMPILED_SPECIALS: bool>(
         special: &str,
         normalizer_provider: &PN,
         casemapper_provider: &PD,
@@ -754,6 +824,13 @@ impl Transliterator {
             + DataProvider<NormalizerNfcV2>,
         PD: ?Sized + DataProvider<CaseMapV1>,
     {
+        #[cfg(feature = "compiled_data")]
+        if COMPILED_SPECIALS {
+            return Self::load_compiled_special(special);
+        }
+        if let Some(builtin) = Self::load_builtin_special(special) {
+            return Some(Ok(builtin));
+        }
         // TODO(#3909, #3910): add more
         match special {
             "any-nfc" => Some(
@@ -780,23 +857,6 @@ impl Transliterator {
                 CaseMapper::try_new_unstable(casemapper_provider)
                     .map(InternalTransliterator::Upper),
             ),
-            "any-null" => Some(Ok(InternalTransliterator::Null)),
-            "any-remove" => Some(Ok(InternalTransliterator::Remove)),
-            "any-hex/unicode" => Some(Ok(InternalTransliterator::Hex(
-                hardcoded::HexTransliterator::new("U+", "", 4, Case::Upper),
-            ))),
-            "any-hex/rust" => Some(Ok(InternalTransliterator::Hex(
-                hardcoded::HexTransliterator::new("\\u{", "}", 2, Case::Lower),
-            ))),
-            "any-hex/xml" => Some(Ok(InternalTransliterator::Hex(
-                hardcoded::HexTransliterator::new("&#x", ";", 1, Case::Upper),
-            ))),
-            "any-hex/perl" => Some(Ok(InternalTransliterator::Hex(
-                hardcoded::HexTransliterator::new("\\x{", "}", 1, Case::Upper),
-            ))),
-            "any-hex/plain" => Some(Ok(InternalTransliterator::Hex(
-                hardcoded::HexTransliterator::new("", "", 4, Case::Upper),
-            ))),
             _ => None,
         }
     }
@@ -915,12 +975,11 @@ impl Rule<'_> {
 
     /// Returns `None` if there is no match. If there is a match, returns the associated
     /// [`MatchData`] and [`RepMatcher`].
-    // Thought: RepMatcher<true> could be "FinishedRepMatcher"? but we can still match post..
     fn matches<'r1, 'r2>(
         &self,
-        mut matcher: RepMatcher<'r1, 'r2, false>,
+        mut matcher: RepMatcher<'r1, 'r2>,
         vt: &VarTable,
-    ) -> Option<(MatchData, RepMatcher<'r1, 'r2, true>)> {
+    ) -> Option<(MatchData, RepMatcher<'r1, 'r2>)> {
         let mut match_data = MatchData::new();
 
         if !self.ante_matches(&mut matcher, &mut match_data, vt) {
@@ -931,7 +990,7 @@ impl Rule<'_> {
             return None;
         }
 
-        let mut matcher = matcher.finish_key();
+        matcher.finish_key();
 
         if !self.post_matches(&mut matcher, &mut match_data, vt) {
             return None;
@@ -1843,5 +1902,49 @@ mod tests {
         let input = "ウィキペディアへようこそ";
         let output = "うぃきぺでぃあへようこそ";
         assert_eq!(t.transliterate(input.to_string()), output);
+    }
+
+    #[test]
+    fn test_hex_empty_and_filtered() {
+        let mut collection = RuleCollection::default();
+        collection.register_source(
+            &"und-x-test".parse().unwrap(),
+            "::[a-z] Hex/Rust;",
+            [],
+            false,
+            true,
+        );
+        let t = Transliterator::try_new_unstable(
+            &collection.as_provider(),
+            &icu_normalizer::provider::Baked,
+            &icu_casemap::provider::Baked,
+            &"und-x-test".parse().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(t.transliterate(String::new()), "");
+        assert_eq!(t.transliterate("AbcD".to_string()), r"A\u{62}\u{63}D");
+    }
+
+    #[test]
+    #[cfg(feature = "compiled_data")]
+    fn test_compiled_specials() {
+        for (special, input, expected) in [
+            ("any-nfc", "e\u{0301}", "\u{00e9}"),
+            ("any-nfkc", "\u{FB01}e\u{0301}", "fi\u{00e9}"),
+            ("any-nfd", "\u{00e9}", "e\u{0301}"),
+            ("any-nfkd", "\u{FB01}\u{00e9}", "fie\u{0301}"),
+            ("any-lower", "ABC", "abc"),
+            ("any-upper", "abc", "ABC"),
+            ("any-null", "abc", "abc"),
+            ("any-remove", "abc", ""),
+        ] {
+            let loaded = Transliterator::load_compiled_special(special)
+                .unwrap()
+                .unwrap();
+            let mut buf = TransliteratorBuffer::from_string(input.to_string());
+            loaded.transliterate(Replaceable::new(&mut buf), &Env::new());
+            assert_eq!(buf.into_string(), expected, "special {special}");
+        }
+        assert!(Transliterator::load_compiled_special("unknown").is_none());
     }
 }

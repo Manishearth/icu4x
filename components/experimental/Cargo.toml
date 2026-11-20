@@ -73,6 +73,8 @@ icu_provider = { path = "../../provider/core", features = ["std"]}
 icu_locale_fallback_data = { workspace = true }
 icu_properties_data = { workspace = true }
 icu_normalizer_data = { workspace = true }
+postcard = { workspace = true, features = ["alloc"] }
+serde_json = { workspace = true }
 
 [features]
 default = ["compiled_data"]

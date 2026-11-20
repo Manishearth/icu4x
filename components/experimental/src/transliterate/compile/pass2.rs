@@ -4,11 +4,10 @@
 
 use super::*;
 use crate::transliterate::provider as ds;
-use alloc::borrow::ToOwned;
+use alloc::borrow::{Cow, ToOwned};
 use alloc::collections::BTreeMap;
 use alloc::string::ToString;
 use core::fmt::{self, Display, Formatter};
-use icu_collections::codepointinvlist::CodePointInversionList;
 use icu_locale_core::Locale;
 use zerovec::{VarZeroVec, vecs::Index32};
 
@@ -141,12 +140,29 @@ impl MutVarTable {
         ds::Segment<'static>,
         unicode_sets.base
     );
-    impl_insert!(
-        insert_unicode_set,
-        unicode_sets,
-        parse::UnicodeSet,
-        function_calls.base
-    );
+
+    fn insert_unicode_set(&mut self, elt: parse::UnicodeSet) -> char {
+        if let Some(pos) = self
+            .unicode_sets
+            .vec
+            .iter()
+            .position(|existing| existing == &elt)
+        {
+            debug_assert!(self.unicode_sets.base + pos as u32 <= self.unicode_sets.current);
+            // the whole PUP (15) consists of valid chars
+            #[expect(clippy::unwrap_used)] // constructor checks this via num_totals
+            return char::try_from(self.unicode_sets.base + pos as u32).unwrap();
+        }
+        // pass 1 is responsible for this
+        debug_assert!(self.unicode_sets.current < self.function_calls.base);
+        // the whole PUP (15) consists of valid chars
+        #[expect(clippy::unwrap_used)] // constructor checks this via num_totals
+        let standin = char::try_from(self.unicode_sets.current).unwrap();
+        self.unicode_sets.vec.push(elt);
+        self.unicode_sets.current += 1;
+        standin
+    }
+
     impl_insert!(
         insert_function_call,
         function_calls,
@@ -187,13 +203,20 @@ impl MutVarTable {
         // we computed the exact counts, so when we call finalize, we should be full
         debug_assert!(self.is_full());
 
+        let unicode_sets: Vec<_> = self
+            .unicode_sets
+            .vec
+            .iter()
+            .map(ds::UnicodeSet::from_cpilsl)
+            .collect();
+
         ds::VarTable {
             compounds: VarZeroVec::from(&self.compounds.vec),
             quantifiers_opt: VarZeroVec::from(&self.quantifiers_opt.vec),
             quantifiers_kleene: VarZeroVec::from(&self.quantifiers_kleene.vec),
             quantifiers_kleene_plus: VarZeroVec::from(&self.quantifiers_kleene_plus.vec),
             segments: VarZeroVec::from(&self.segments.vec),
-            unicode_sets: VarZeroVec::from(&self.unicode_sets.vec),
+            unicode_sets: VarZeroVec::from(&unicode_sets),
             function_calls: VarZeroVec::from(&self.function_calls.vec),
             // these casts are safe, because the constructor checks that everything is in range,
             // and the range has a length of less than 2^16
@@ -208,7 +231,7 @@ impl MutVarTable {
             && self.quantifiers_kleene.vec.len() == self.counts.num_quantifiers_kleene
             && self.quantifiers_kleene_plus.vec.len() == self.counts.num_quantifiers_kleene_plus
             && self.segments.vec.len() == self.counts.num_segments
-            && self.unicode_sets.vec.len() == self.counts.num_unicode_sets
+            && self.unicode_sets.vec.len() <= self.counts.num_unicode_sets
             && self.function_calls.vec.len() == self.counts.num_function_calls
     }
 }
@@ -253,8 +276,7 @@ impl<'a, 'p> Pass2<'a, 'p> {
             curr_segment: 0,
         };
         let mut compiled_transform_groups: Vec<VarZeroVec<'static, ds::SimpleIdULE>> = Vec::new();
-        let mut compiled_conversion_groups: Vec<VarZeroVec<'static, ds::RuleULE, Index32>> =
-            Vec::new();
+        let mut compiled_conversion_groups: Vec<Vec<ds::Rule<'static>>> = Vec::new();
 
         for (transform_group, conversion_group) in pass1.groups {
             let compiled_transform_group: Vec<_> = transform_group
@@ -267,14 +289,85 @@ impl<'a, 'p> Pass2<'a, 'p> {
                 .into_iter()
                 .map(|rule| pass2.compile_conversion_rule(rule))
                 .collect();
-            compiled_conversion_groups.push(VarZeroVec::from(&compiled_conversion_group));
+            compiled_conversion_groups.push(compiled_conversion_group);
         }
+
+        // Deduplicating unicode_sets shrinks unicode_sets.len(), so all standin chars from
+        // function_calls.base..=MAX_DYNAMIC must shift down by `delta` to stay aligned with
+        // runtime VarTable::lookup.
+        let delta = (pass2.var_table.counts.num_unicode_sets
+            - pass2.var_table.unicode_sets.vec.len()) as u32;
+        if delta > 0 {
+            let remap_range =
+                pass2.var_table.function_calls.base..=ds::VarTable::MAX_DYNAMIC as u32;
+            let remap_str = |s: &str| -> Option<String> {
+                if !s.chars().any(|c| remap_range.contains(&(c as u32))) {
+                    return None;
+                }
+                Some(
+                    s.chars()
+                        .map(|c| {
+                            let cp = c as u32;
+                            if remap_range.contains(&cp) {
+                                char::from_u32(cp - delta).unwrap_or(c)
+                            } else {
+                                c
+                            }
+                        })
+                        .collect(),
+                )
+            };
+            let remap_string = |s: &mut String| {
+                if let Some(new_s) = remap_str(s) {
+                    *s = new_s;
+                }
+            };
+            let remap_cow = |s: &mut Cow<'static, str>| {
+                if let Some(new_s) = remap_str(s) {
+                    *s = Cow::Owned(new_s);
+                }
+            };
+
+            for group in &mut compiled_conversion_groups {
+                for rule in group {
+                    remap_cow(&mut rule.ante);
+                    remap_cow(&mut rule.key);
+                    remap_cow(&mut rule.post);
+                    remap_cow(&mut rule.replacer);
+                }
+            }
+            for s in &mut pass2.var_table.compounds.vec {
+                remap_string(s);
+            }
+            for s in &mut pass2.var_table.quantifiers_opt.vec {
+                remap_string(s);
+            }
+            for s in &mut pass2.var_table.quantifiers_kleene.vec {
+                remap_string(s);
+            }
+            for s in &mut pass2.var_table.quantifiers_kleene_plus.vec {
+                remap_string(s);
+            }
+            for seg in &mut pass2.var_table.segments.vec {
+                remap_cow(&mut seg.content);
+            }
+            for fc in &mut pass2.var_table.function_calls.vec {
+                remap_cow(&mut fc.arg);
+            }
+        }
+
+        let compiled_conversion_groups: Vec<VarZeroVec<'static, ds::RuleULE, Index32>> =
+            compiled_conversion_groups
+                .iter()
+                .map(VarZeroVec::from)
+                .collect();
 
         Ok(ds::RuleBasedTransliterator {
             visibility: true,
-            filter: pass1
-                .filter
-                .unwrap_or(const { CodePointInversionList::all() }),
+            filter: pass1.filter.as_ref().map_or_else(
+                ds::CodePointSetULE::new_all_cow,
+                ds::CodePointSetULE::from_inversion_list,
+            ),
             id_group_list: VarZeroVec::from(&compiled_transform_groups),
             rule_group_list: VarZeroVec::from(&compiled_conversion_groups),
             variable_table: pass2.var_table.finalize(),
@@ -418,7 +511,10 @@ impl<'a, 'p> Pass2<'a, 'p> {
         };
         ds::SimpleId {
             id: string.into(),
-            filter: id.filter.unwrap_or(CodePointInversionList::all()),
+            filter: id.filter.as_ref().map_or_else(
+                ds::CodePointSetULE::new_all_cow,
+                ds::CodePointSetULE::from_inversion_list,
+            ),
         }
     }
 }

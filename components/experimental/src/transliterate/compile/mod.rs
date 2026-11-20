@@ -735,23 +735,23 @@ mod tests {
             })
             .unwrap();
         {
-            let expected_filter = parse_set_cp("[1]");
+            let expected_filter = ds::CodePointSetULE::from_inversion_list(&parse_set_cp("[1]"));
 
             let expected_id_group1 = vec![ds::SimpleId {
-                filter: parse::FilterSet::all(),
+                filter: ds::CodePointSetULE::new_all_cow(),
                 id: Cow::Borrowed("x-latin-interindic"),
             }];
             let expected_id_group2 = vec![ds::SimpleId {
-                filter: parse_set_cp(r"[\ ]"),
+                filter: ds::CodePointSetULE::from_inversion_list(&parse_set_cp(r"[\ ]")),
                 id: Cow::Borrowed("any-remove"),
             }];
             let expected_id_group3 = vec![
                 ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSetULE::new_all_cow(),
                     id: Cow::Borrowed("x-interindic-devanagari"),
                 },
                 ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSetULE::new_all_cow(),
                     id: Cow::Borrowed("any-nfc"),
                 },
             ];
@@ -803,8 +803,12 @@ mod tests {
                 "\u{F0004}", // [b] from [b]+
             ];
 
-            let expected_unicode_sets =
-                vec![parse_set("[a-z]"), parse_set("[a]"), parse_set("[b]")];
+            let expected_unicode_sets_parsed =
+                [parse_set("[a-z]"), parse_set("[a]"), parse_set("[b]")];
+            let expected_unicode_sets: Vec<_> = expected_unicode_sets_parsed
+                .iter()
+                .map(ds::UnicodeSet::from_cpilsl)
+                .collect();
 
             let expected_var_table = ds::VarTable {
                 compounds: VarZeroVec::from(&expected_compounds),
@@ -838,24 +842,24 @@ mod tests {
             );
         }
         {
-            let expected_filter = parse::FilterSet::all();
+            let expected_filter = ds::CodePointSetULE::new_all_cow();
 
             let expected_id_group1 = vec![
                 ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSetULE::new_all_cow(),
                     id: Cow::Borrowed("any-nfd"),
                 },
                 ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSetULE::new_all_cow(),
                     id: Cow::Borrowed("x-devanagari-interindic"),
                 },
                 ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSetULE::new_all_cow(),
                     id: Cow::Borrowed("und-t-d0-addrndsp-m0-fifty-s0-anyrev"),
                 },
             ];
             let expected_id_group2 = vec![ds::SimpleId {
-                filter: parse::FilterSet::all(),
+                filter: ds::CodePointSetULE::new_all_cow(),
                 id: Cow::Borrowed("x-interindic-latin"),
             }];
 
@@ -900,13 +904,17 @@ mod tests {
                 content: Cow::Borrowed("\u{F0001}"), // $b from ($b)
             }];
 
-            let expected_unicode_sets =
-                vec![parse_set("[a]"), parse_set("[b]"), parse_set("[0-9]")];
+            let expected_unicode_sets_parsed =
+                [parse_set("[a]"), parse_set("[b]"), parse_set("[0-9]")];
+            let expected_unicode_sets: Vec<_> = expected_unicode_sets_parsed
+                .iter()
+                .map(ds::UnicodeSet::from_cpilsl)
+                .collect();
 
             let expected_function_calls = vec![ds::FunctionCall {
                 arg: Cow::Borrowed("\u{F000B}padding"), // $1 and 'padding'
                 translit: ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSetULE::new_all_cow(),
                     id: Cow::Borrowed("x-any-revfncall"),
                 },
             }];
@@ -943,5 +951,56 @@ mod tests {
                 ])
             );
         }
+    }
+
+    #[cfg(feature = "compiled_data")]
+    #[test]
+    fn test_unicode_set_dedup_and_remap() {
+        let source = r"
+        $a = [a-z] ;
+        $c = 'k' $a [0-9]+ ;
+        $c > 'K' ;
+        ([a-z]) [a-z]? [a-z]* ([0-9]) > |@ &Any-Upper($1 $2) ;
+        ([0-9]) > '#' @@| ;
+        ";
+
+        let test_locale: Locale = "und-t-und-latn-d0-ascii".parse().unwrap();
+        let mut collection = RuleCollection::default();
+        collection.register_source(&test_locale, source, [], false, true);
+
+        let provider = collection.as_provider();
+        let resp: DataResponse<TransliteratorRulesV1> = provider
+            .load(DataRequest {
+                id: DataIdentifierBorrowed::for_marker_attributes(
+                    DataMarkerAttributes::from_str_or_panic("und-t-und-latn-d0-ascii"),
+                ),
+                ..Default::default()
+            })
+            .unwrap();
+        let vt = &resp.payload.get().variable_table;
+        // [a-z] is used 5 times and [0-9] is used 3 times -> deduplicated to 2 unique sets.
+        assert_eq!(vt.unicode_sets.len(), 2);
+        assert_eq!(vt.compounds.len(), 2);
+        assert_eq!(vt.quantifiers_opt.len(), 1);
+        assert_eq!(vt.quantifiers_kleene.len(), 1);
+        assert_eq!(vt.quantifiers_kleene_plus.len(), 1);
+        assert_eq!(vt.segments.len(), 3);
+        assert_eq!(vt.function_calls.len(), 1);
+        assert_eq!(vt.max_left_placeholder_count, 2);
+        assert_eq!(vt.max_right_placeholder_count, 1);
+
+        use icu_normalizer::provider::Baked as NormalizerBaked;
+        let translit = crate::transliterate::Transliterator::try_new_unstable(
+            &provider,
+            &NormalizerBaked,
+            &icu_casemap::provider::Baked,
+            &test_locale,
+        )
+        .unwrap();
+
+        // 'ka99' matches `$c > 'K'`.
+        // 'ab1' matches `([a-z]) [a-z]? [a-z]* ([0-9]) > |@ &Any-Upper($1 $2)`, producing 'A1' with
+        // cursor before '1', then '1' matches `([0-9]) > @@| '#'`, producing 'A#'.
+        assert_eq!(translit.transliterate("ka99 ab1".to_string()), "K A#");
     }
 }

@@ -320,7 +320,7 @@ impl<'a> Replaceable<'a> {
 
         let run_start;
         let run_end;
-        if filter == &Filter::all() {
+        if filter.is_all() {
             // special case for the noop filter
 
             run_start = start;

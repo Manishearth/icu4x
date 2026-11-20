@@ -115,7 +115,7 @@ impl RuleCollection {
         visible: bool,
     ) {
         self.data.borrow_mut().0.insert(
-            id.to_string().to_ascii_lowercase(),
+            super::transliterator::locale_to_attr_string(id),
             (source.into(), reverse, visible),
         );
         self.register_aliases(id, aliases)

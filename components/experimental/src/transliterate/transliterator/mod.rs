@@ -107,6 +107,35 @@ impl InternalTransliterator {
 
 type Env = LiteMap<String, InternalTransliterator>;
 
+pub(crate) fn locale_to_attr_string(locale: &Locale) -> String {
+    // Write directly via `Writeable::write_to` rather than `Locale::to_string` to avoid
+    // pulling in `writeable_length_hint` and duplicate `for_each_subtag_str` instantiations.
+    let mut output = String::new();
+    let _ = writeable::Writeable::write_to(locale, &mut output);
+    output.make_ascii_lowercase();
+    output
+}
+
+trait OverrideLookup {
+    fn lookup(&self, dep: &str) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>;
+}
+
+impl OverrideLookup for () {
+    #[inline(always)]
+    fn lookup(&self, _dep: &str) -> Option<Result<Box<dyn CustomTransliterator>, DataError>> {
+        None
+    }
+}
+
+impl<F> OverrideLookup for F
+where
+    F: Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>,
+{
+    fn lookup(&self, dep: &str) -> Option<Result<Box<dyn CustomTransliterator>, DataError>> {
+        self(&dep.parse().ok()?)
+    }
+}
+
 /// A `Transliterator` allows transliteration based on [UTS #35 transform rules](https://unicode.org/reports/tr35/tr35-general.html#Transforms),
 /// including overrides with custom implementations.
 ///
@@ -534,9 +563,79 @@ impl Transliterator {
             + DataProvider<NormalizerNfcV2>
             + ?Sized,
     {
+        let attr_str = locale_to_attr_string(locale);
+        #[expect(clippy::unwrap_used)] // Locale subtags are always valid DataMarkerAttributes
+        let attributes = DataMarkerAttributes::try_from_str(&attr_str).unwrap();
+        Self::try_new_from_attributes_unstable(
+            transliterator_provider,
+            normalizer_provider,
+            casemap_provider,
+            attributes,
+        )
+    }
+
+    /// Construct a [`Transliterator`] from the given [`DataMarkerAttributes`].
+    ///
+    /// This avoids parsing or formatting a [`Locale`] when the caller already has a
+    /// BCP-47-T identifier string (such as `"und-Arab-t-und-beng"`).
+    ///
+    /// # Examples
+    /// ```
+    /// use icu::experimental::transliterate::Transliterator;
+    /// use icu_provider::DataMarkerAttributes;
+    ///
+    /// // BCP-47-T ID for Bengali to Arabic transliteration
+    /// let attrs = DataMarkerAttributes::from_str_or_panic("und-Arab-t-und-beng");
+    /// let t = Transliterator::try_new_from_attributes(attrs).unwrap();
+    /// let output = t.transliterate("অকার্যতানাযা".to_string());
+    ///
+    /// assert_eq!(output, "اكاريتانايا");
+    /// ```
+    #[cfg(feature = "compiled_data")]
+    #[allow(unused_qualifications)]
+    pub fn try_new_from_attributes(attributes: &DataMarkerAttributes) -> Result<Self, DataError> {
+        Self::try_new_from_attributes_unstable(
+            &crate::provider::Baked,
+            &icu_normalizer::provider::Baked,
+            &icu_casemap::provider::Baked,
+            attributes,
+        )
+    }
+
+    #[cfg(feature = "serde")]
+    #[doc = icu_provider::gen_buffer_unstable_docs!(BUFFER, Self::try_new_from_attributes)]
+    pub fn try_new_from_attributes_with_buffer_provider(
+        provider: &(impl BufferProvider + ?Sized),
+        attributes: &DataMarkerAttributes,
+    ) -> Result<Self, DataError> {
+        Self::try_new_from_attributes_unstable(
+            &provider.as_deserializing(),
+            &provider.as_deserializing(),
+            &provider.as_deserializing(),
+            attributes,
+        )
+    }
+
+    #[doc = icu_provider::gen_buffer_unstable_docs!(UNSTABLE, Self::try_new_from_attributes)]
+    pub fn try_new_from_attributes_unstable<PT, PN, PC>(
+        transliterator_provider: &PT,
+        normalizer_provider: &PN,
+        casemap_provider: &PC,
+        attributes: &DataMarkerAttributes,
+    ) -> Result<Self, DataError>
+    where
+        PT: DataProvider<TransliteratorRulesV1> + ?Sized,
+        PC: DataProvider<CaseMapV1> + ?Sized,
+        PN: DataProvider<NormalizerNfdDataV1>
+            + DataProvider<NormalizerNfkdDataV1>
+            + DataProvider<NormalizerNfdTablesV1>
+            + DataProvider<NormalizerNfkdTablesV1>
+            + DataProvider<NormalizerNfcV2>
+            + ?Sized,
+    {
         Self::internal_try_new_with_override_unstable(
-            locale,
-            None::<&fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>>,
+            attributes,
+            &(),
             transliterator_provider,
             normalizer_provider,
             casemap_provider,
@@ -637,18 +736,21 @@ impl Transliterator {
             + ?Sized,
         F: Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>,
     {
+        let attr_str = locale_to_attr_string(locale);
+        #[expect(clippy::unwrap_used)] // Locale subtags are always valid DataMarkerAttributes
+        let attributes = DataMarkerAttributes::try_from_str(&attr_str).unwrap();
         Self::internal_try_new_with_override_unstable(
-            locale,
-            Some(&lookup),
+            attributes,
+            &lookup,
             transliterator_provider,
             normalizer_provider,
             casemap_provider,
         )
     }
 
-    fn internal_try_new_with_override_unstable<PN, PT, PC, F>(
-        locale: &Locale,
-        lookup: Option<&F>,
+    fn internal_try_new_with_override_unstable<PN, PT, PC, L>(
+        attributes: &DataMarkerAttributes,
+        lookup: &L,
         transliterator_provider: &PT,
         normalizer_provider: &PN,
         casemap_provider: &PC,
@@ -662,13 +764,26 @@ impl Transliterator {
             + DataProvider<NormalizerNfkdTablesV1>
             + DataProvider<NormalizerNfcV2>
             + ?Sized,
-        F: Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>,
+        L: OverrideLookup,
     {
         let mut env = LiteMap::new();
 
+        let lowered = attributes
+            .as_bytes()
+            .iter()
+            .any(u8::is_ascii_uppercase)
+            .then(|| attributes.as_str().to_ascii_lowercase());
+        let attributes = match lowered.as_deref() {
+            Some(lowered) => {
+                #[expect(clippy::unwrap_used)]
+                // lowercasing preserves valid DataMarkerAttributes syntax
+                DataMarkerAttributes::try_from_str(lowered).unwrap()
+            }
+            None => attributes,
+        };
+
         let transliterator = Transliterator::load_rbt(
-            #[expect(clippy::unwrap_used)] // infallible
-            DataMarkerAttributes::try_from_str(&locale.to_string().to_ascii_lowercase()).unwrap(),
+            attributes,
             lookup,
             transliterator_provider,
             normalizer_provider,
@@ -683,9 +798,9 @@ impl Transliterator {
         })
     }
 
-    fn load_rbt<PT, PN, PC, F>(
+    fn load_rbt<PT, PN, PC, L>(
         marker_attributes: &DataMarkerAttributes,
-        lookup: Option<&F>,
+        lookup: &L,
         transliterator_provider: &PT,
         normalizer_provider: &PN,
         casemap_provider: &PC,
@@ -701,7 +816,7 @@ impl Transliterator {
             + DataProvider<NormalizerNfkdTablesV1>
             + DataProvider<NormalizerNfcV2>
             + ?Sized,
-        F: Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>,
+        L: OverrideLookup,
     {
         let req = DataRequest {
             id: DataIdentifierBorrowed::for_marker_attributes(marker_attributes),
@@ -712,7 +827,10 @@ impl Transliterator {
             return Err(DataError::custom("internal only transliterator"));
         }
         // Avoid recursive load
-        env.insert(marker_attributes.to_string(), InternalTransliterator::Null);
+        env.insert(
+            String::from(marker_attributes.as_str()),
+            InternalTransliterator::Null,
+        );
         for dep in transliterator.get().deps() {
             if !env.contains_key(&*dep) {
                 // Load the transliterator, by checking
@@ -720,12 +838,17 @@ impl Transliterator {
                     // a) hardcoded specials
                     Transliterator::load_special(&dep, normalizer_provider, casemap_provider)
                     // b) the user-provided override
-                    .or_else(|| Some(lookup?(&dep.parse().ok()?)?.map(InternalTransliterator::Dyn)))
+                    .or_else(|| lookup.lookup(&dep).map(|r| r.map(InternalTransliterator::Dyn)))
                     // c) the data
                     .unwrap_or_else(|| {
+                        let lowered = dep
+                            .bytes()
+                            .any(|b| b.is_ascii_uppercase())
+                            .then(|| dep.to_ascii_lowercase());
+                        let dep_str = lowered.as_deref().unwrap_or(&dep);
                         Transliterator::load_rbt(
                             #[expect(clippy::unwrap_used)] // infallible
-                            DataMarkerAttributes::try_from_str(&dep.to_ascii_lowercase()).unwrap(),
+                            DataMarkerAttributes::try_from_str(dep_str).unwrap(),
                             lookup,
                             transliterator_provider,
                             normalizer_provider,
@@ -734,7 +857,7 @@ impl Transliterator {
                             env,
                         ).map(InternalTransliterator::RuleBased)
                     })?;
-                env.insert(dep.to_string(), internal_t);
+                env.insert(dep.into_owned(), internal_t);
             }
         }
         Ok(transliterator)
@@ -1843,5 +1966,124 @@ mod tests {
         let input = "ウィキペディアへようこそ";
         let output = "うぃきぺでぃあへようこそ";
         assert_eq!(t.transliterate(input.to_string()), output);
+    }
+
+    #[test]
+    fn test_locale_to_attr_string() {
+        for tag in [
+            "und",
+            "und-Hira-t-und-kana",
+            "de-t-de-d0-ASCII",
+            "und-Arab-t-und-Beng",
+            "und-t-und-Latn-d0-ascii",
+        ] {
+            let locale: Locale = tag.parse().unwrap();
+            assert_eq!(
+                locale_to_attr_string(&locale),
+                locale.to_string().to_ascii_lowercase()
+            );
+        }
+    }
+
+    #[test]
+    fn test_try_new_from_attributes_lowercase() {
+        let t = Transliterator::try_new_from_attributes(DataMarkerAttributes::from_str_or_panic(
+            "und-hira-t-und-kana",
+        ))
+        .unwrap();
+        assert_eq!(
+            t.transliterate("ウィキペディアへようこそ".to_string()),
+            "うぃきぺでぃあへようこそ"
+        );
+    }
+
+    #[test]
+    fn test_try_new_from_attributes_mixed_case() {
+        let t_hira = Transliterator::try_new_from_attributes(
+            DataMarkerAttributes::from_str_or_panic("und-Hira-t-und-kana"),
+        )
+        .unwrap();
+        assert_eq!(
+            t_hira.transliterate("ウィキペディアへようこそ".to_string()),
+            "うぃきぺでぃあへようこそ"
+        );
+
+        let t_de_attrs = Transliterator::try_new_from_attributes(
+            DataMarkerAttributes::from_str_or_panic("de-t-de-d0-ASCII"),
+        )
+        .unwrap();
+        let t_de_locale = Transliterator::try_new(&"de-t-de-d0-ascii".parse().unwrap()).unwrap();
+        let input =
+            "Über ältere Lügner lästern ist sehr a\u{0308}rgerlich. Ja, SEHR ÄRGERLICH! - ꜵ";
+        assert_eq!(
+            t_de_attrs.transliterate(input.to_string()),
+            t_de_locale.transliterate(input.to_string())
+        );
+    }
+
+    #[test]
+    fn test_try_new_from_attributes_matches_try_new() {
+        for (id, sample) in [
+            ("de-t-de-d0-ascii", "Übermäßige Grüße ꜵ"),
+            ("el-Latn-t-el-m0-bgn", "Αθήνα Θεσσαλονίκη"),
+            ("und-Arab-t-und-beng", "অকার্যতানাযা"),
+            ("und-t-d0-publish", "\"Hello\" -- world..."),
+            ("und-t-s0-publish", "“Hello” — world…"),
+            ("und-t-und-latn-d0-ascii", "äa\u{0308} ꜵ Æ œ"),
+            ("und-Hira-t-und-kana", "ウィキペディアへようこそ"),
+        ] {
+            let t_locale = Transliterator::try_new(&id.parse().unwrap()).unwrap();
+            let t_attrs = Transliterator::try_new_from_attributes(
+                DataMarkerAttributes::from_str_or_panic(id),
+            )
+            .unwrap();
+            assert_eq!(
+                t_attrs.transliterate(sample.to_string()),
+                t_locale.transliterate(sample.to_string()),
+                "mismatch for {id}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_try_new_from_attributes_errors() {
+        let empty = DataMarkerAttributes::try_from_str("").unwrap();
+        assert_eq!(empty, DataMarkerAttributes::empty());
+        let err = Transliterator::try_new_from_attributes(empty).unwrap_err();
+        assert_eq!(err.kind, DataErrorKind::IdentifierNotFound);
+
+        let unknown = DataMarkerAttributes::from_str_or_panic("und-x-nonexistent");
+        let err = Transliterator::try_new_from_attributes(unknown).unwrap_err();
+        assert_eq!(err.kind, DataErrorKind::IdentifierNotFound);
+
+        assert!(DataMarkerAttributes::try_from_str("invalid attr!").is_err());
+    }
+
+    #[test]
+    fn test_try_new_from_attributes_unstable_mixed_case_dep() {
+        let mut collection = RuleCollection::default();
+        collection.register_source(
+            &"und-t-und-x0-Custom".parse().unwrap(),
+            "::Any-Dep1;",
+            [],
+            false,
+            true,
+        );
+        collection.register_source(
+            &"und-t-und-x0-Dep1".parse().unwrap(),
+            "a > b;",
+            ["Any-Dep1"],
+            false,
+            true,
+        );
+        let provider = collection.as_provider();
+        let t = Transliterator::try_new_from_attributes_unstable(
+            &provider,
+            &provider,
+            &provider,
+            DataMarkerAttributes::from_str_or_panic("und-t-und-x0-Custom"),
+        )
+        .unwrap();
+        assert_eq!(t.transliterate("aba".to_string()), "bbb");
     }
 }

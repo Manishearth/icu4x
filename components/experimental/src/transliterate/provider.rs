@@ -184,25 +184,25 @@ pub struct Rule<'a> {
 pub struct VarTable<'a> {
     /// Variable definitions.
     #[cfg_attr(feature = "serde", serde(borrow))]
-    pub compounds: VarZeroVec<'a, str, Index32>,
+    pub compounds: VarZeroVec<'a, str>,
     /// Zero or one quantifiers.
     #[cfg_attr(feature = "serde", serde(borrow))]
-    pub quantifiers_opt: VarZeroVec<'a, str, Index32>,
+    pub quantifiers_opt: VarZeroVec<'a, str>,
     /// Zero or more quantifiers.
     #[cfg_attr(feature = "serde", serde(borrow))]
-    pub quantifiers_kleene: VarZeroVec<'a, str, Index32>,
+    pub quantifiers_kleene: VarZeroVec<'a, str>,
     /// One or more quantifiers.
     #[cfg_attr(feature = "serde", serde(borrow))]
-    pub quantifiers_kleene_plus: VarZeroVec<'a, str, Index32>,
+    pub quantifiers_kleene_plus: VarZeroVec<'a, str>,
     /// Segments.
     #[cfg_attr(feature = "serde", serde(borrow))]
-    pub segments: VarZeroVec<'a, SegmentULE, Index32>,
+    pub segments: VarZeroVec<'a, SegmentULE>,
     /// `UnicodeSets`. These are represented as a [`CodePointInversionListAndStringList`](icu_collections::codepointinvliststringlist::CodePointInversionListAndStringList)
     #[cfg_attr(feature = "serde", serde(borrow))]
     pub unicode_sets: VarZeroVec<'a, CodePointInversionListAndStringListULE, Index32>,
     /// Function calls.
     #[cfg_attr(feature = "serde", serde(borrow))]
-    pub function_calls: VarZeroVec<'a, FunctionCallULE, Index32>,
+    pub function_calls: VarZeroVec<'a, FunctionCallULE>,
     /// The maximum number of _left_ placeholders (`rest @@@ |`) in any rule.
     pub max_left_placeholder_count: u16,
     /// The maximum number of _right_ placeholders (`| @@@ rest`) in any rule.

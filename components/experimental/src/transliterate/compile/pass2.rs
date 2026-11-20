@@ -10,7 +10,7 @@ use alloc::string::ToString;
 use core::fmt::{self, Display, Formatter};
 use icu_collections::codepointinvlist::CodePointInversionList;
 use icu_locale_core::Locale;
-use zerovec::{VarZeroVec, vecs::Index32};
+use zerovec::VarZeroVec;
 
 type Result<T> = core::result::Result<T, CompileError>;
 
@@ -253,8 +253,7 @@ impl<'a, 'p> Pass2<'a, 'p> {
             curr_segment: 0,
         };
         let mut compiled_transform_groups: Vec<VarZeroVec<'static, ds::SimpleIdULE>> = Vec::new();
-        let mut compiled_conversion_groups: Vec<VarZeroVec<'static, ds::RuleULE, Index32>> =
-            Vec::new();
+        let mut compiled_conversion_groups: Vec<Vec<ds::Rule<'static>>> = Vec::new();
 
         for (transform_group, conversion_group) in pass1.groups {
             let compiled_transform_group: Vec<_> = transform_group
@@ -267,7 +266,7 @@ impl<'a, 'p> Pass2<'a, 'p> {
                 .into_iter()
                 .map(|rule| pass2.compile_conversion_rule(rule))
                 .collect();
-            compiled_conversion_groups.push(VarZeroVec::from(&compiled_conversion_group));
+            compiled_conversion_groups.push(compiled_conversion_group);
         }
 
         Ok(ds::RuleBasedTransliterator {

@@ -69,6 +69,8 @@ criterion = { workspace = true }
 [dev-dependencies]
 icu = { path = "../../components/icu", features = ["unstable"] }
 icu_provider = { path = "../../provider/core", features = ["std"]}
+postcard = { workspace = true, features = ["alloc"] }
+serde_json = { workspace = true }
 
 icu_locale_fallback_data = { workspace = true }
 icu_properties_data = { workspace = true }

@@ -7,7 +7,7 @@
 mod hardcoded;
 mod replaceable;
 
-use crate::transliterate::provider::{FunctionCall, Rule, RuleULE, SimpleId, VarTable};
+use crate::transliterate::provider::{FunctionCall, Rule, RuleGroupULE, SimpleId, VarTable};
 use crate::transliterate::provider::{RuleBasedTransliterator, Segment, TransliteratorRulesV1};
 use crate::transliterate::transliterator::hardcoded::Case;
 use alloc::borrow::Cow;
@@ -28,8 +28,6 @@ use icu_provider::prelude::*;
 use litemap::LiteMap;
 use replaceable::*;
 use zerofrom::ZeroFrom;
-use zerovec::VarZeroSlice;
-use zerovec::vecs::Index32;
 
 type Filter<'a> = CodePointInversionList<'a>;
 
@@ -237,18 +235,25 @@ impl TransliteratorBuilder {
         self.transliterator.with_mut(move |r| {
             let rule_group_list = r.rule_group_list.make_mut();
 
-            let mut group = if rule_group_list.is_empty() {
-                Default::default()
-            } else {
+            let mut group: Vec<Rule<'_>> = if let Some(last) = rule_group_list.len().checked_sub(1)
+            {
                 let g = rule_group_list
-                    .get(rule_group_list.len() - 1)
+                    .get(last)
                     .unwrap()
-                    .as_varzerovec()
-                    .into_owned();
-                rule_group_list.remove(rule_group_list.len() - 1);
+                    .iter()
+                    .map(|rule| Rule {
+                        ante: Cow::Owned(rule.ante.into_owned()),
+                        key: Cow::Owned(rule.key.into_owned()),
+                        post: Cow::Owned(rule.post.into_owned()),
+                        replacer: Cow::Owned(rule.replacer.into_owned()),
+                    })
+                    .collect();
+                rule_group_list.remove(last);
                 g
+            } else {
+                Vec::new()
             };
-            group.make_mut().push(&Rule {
+            group.push(Rule {
                 key: Cow::Owned(String::from(
                     // We can just use the index in the unicode_sets list because that's the only
                     // part of the variable table we use. If we used any of the other fields,
@@ -263,7 +268,7 @@ impl TransliteratorBuilder {
                 ante: Cow::Borrowed(""),
                 post: Cow::Borrowed(""),
             });
-            rule_group_list.push(&group);
+            rule_group_list.push(&group[..]);
 
             r.variable_table.unicode_sets.make_mut().push(&matcher);
         });
@@ -341,7 +346,7 @@ impl TransliteratorBuilder {
                 .make_mut()
                 .push::<&[SimpleId]>(&[].as_slice());
 
-            r.rule_group_list.make_mut().push::<&[Rule]>(&[].as_slice());
+            r.rule_group_list.make_mut().push(&[][..]);
         });
 
         self
@@ -374,7 +379,7 @@ impl TransliteratorBuilder {
                 .make_mut()
                 .push(&[SimpleId { filter, id }].as_slice());
 
-            r.rule_group_list.make_mut().push::<&[Rule]>(&[].as_slice());
+            r.rule_group_list.make_mut().push(&[][..]);
         });
     }
 
@@ -855,11 +860,11 @@ impl SimpleId<'_> {
 }
 
 struct RuleGroup<'a> {
-    rules: &'a VarZeroSlice<RuleULE, Index32>,
+    rules: &'a RuleGroupULE,
 }
 
 impl<'a> RuleGroup<'a> {
-    fn from(rules: &'a VarZeroSlice<RuleULE, Index32>) -> Self {
+    fn from(rules: &'a RuleGroupULE) -> Self {
         Self { rules }
     }
 
@@ -879,7 +884,6 @@ impl<'a> RuleGroup<'a> {
         'main: while !rep.is_finished() {
             // eprintln!("ongoing RuleGroup transliteration:\n{rep:?}");
             for rule in self.rules.iter() {
-                let rule: Rule = Rule::zero_from(rule);
                 // eprintln!("trying rule: {rule:?}");
                 let matcher = rep.start_match();
                 if let Some((data, matcher)) = rule.matches(matcher, vt) {
@@ -1843,5 +1847,21 @@ mod tests {
         let input = "ウィキペディアへようこそ";
         let output = "うぃきぺでぃあへようこそ";
         assert_eq!(t.transliterate(input.to_string()), output);
+    }
+
+    #[cfg(feature = "compiled_data")]
+    #[test]
+    fn test_builder_replace_long() {
+        let long_replacement = "x".repeat(300);
+        let t = TransliteratorBuilder::default()
+            .null()
+            .replace(["a"].into_iter().collect(), long_replacement.clone())
+            .replace(["b"].into_iter().collect(), "B".to_string())
+            .build()
+            .unwrap();
+        assert_eq!(
+            t.transliterate("ab".to_string()),
+            format!("{long_replacement}B")
+        );
     }
 }

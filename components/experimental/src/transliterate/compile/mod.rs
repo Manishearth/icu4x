@@ -667,7 +667,7 @@ mod tests {
     use crate::transliterate::provider as ds;
     use icu_locale_core::locale;
     use std::collections::HashSet;
-    use zerovec::{VarZeroVec, vecs::Index32};
+    use zerovec::VarZeroVec;
 
     fn parse_set(source: &str) -> parse::UnicodeSet {
         icu_properties::unicodeset_parse::parse_unstable(source, &icu_properties::provider::Baked)
@@ -789,11 +789,8 @@ mod tests {
                 replacer: Cow::Borrowed("splitsuprulegroups"),
             }];
 
-            let expected_rule_group_list: Vec<VarZeroVec<'_, ds::RuleULE, Index32>> = vec![
-                VarZeroVec::from(&expected_rule_group1),
-                VarZeroVec::from(&expected_rule_group2),
-                VarZeroVec::new(), // empty rule group after the last transform rule
-            ];
+            let expected_rule_group_list =
+                vec![expected_rule_group1, expected_rule_group2, Vec::new()];
 
             let expected_compounds = vec![
                 "\u{F0003}\u{F0001}", // [a] and [b]+ (the quantifier contains [b])
@@ -879,8 +876,7 @@ mod tests {
                 },
             ];
 
-            let expected_rule_group_list: Vec<VarZeroVec<'_, ds::RuleULE, Index32>> =
-                vec![VarZeroVec::from(&expected_rule_group1), VarZeroVec::new()];
+            let expected_rule_group_list = vec![expected_rule_group1, Vec::new()];
 
             let expected_compounds = vec![
                 "\u{F0005}\u{F0003}",     // $a = [a] [b]+ (quantifier contains [b])

@@ -479,6 +479,117 @@ impl TransliteratorBuilder {
     }
 }
 
+type OverrideLookup<'a> =
+    &'a dyn Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>;
+
+trait SpecialLoader {
+    fn load_special(&self, special: &str) -> Option<Result<InternalTransliterator, DataError>>;
+}
+
+fn load_builtin_special(special: &str) -> Option<InternalTransliterator> {
+    match special {
+        "any-null" => Some(InternalTransliterator::Null),
+        "any-remove" => Some(InternalTransliterator::Remove),
+        _ => {
+            let (prefix, suffix, min_length, case) = match special.strip_prefix("any-hex/")? {
+                "unicode" => ("U+", "", 4, Case::Upper),
+                "rust" => ("\\u{", "}", 2, Case::Lower),
+                "xml" => ("&#x", ";", 1, Case::Upper),
+                "perl" => ("\\x{", "}", 1, Case::Upper),
+                "plain" => ("", "", 4, Case::Upper),
+                _ => return None,
+            };
+            Some(InternalTransliterator::Hex(
+                hardcoded::HexTransliterator::new(prefix, suffix, min_length, case),
+            ))
+        }
+    }
+}
+
+#[cfg(feature = "compiled_data")]
+struct CompiledSpecialLoader;
+
+#[cfg(feature = "compiled_data")]
+impl SpecialLoader for CompiledSpecialLoader {
+    fn load_special(&self, special: &str) -> Option<Result<InternalTransliterator, DataError>> {
+        if let Some(builtin) = load_builtin_special(special) {
+            return Some(Ok(builtin));
+        }
+        // TODO(#3909, #3910): add more
+        match special {
+            "any-nfc" => Some(Ok(InternalTransliterator::Composing(
+                ComposingNormalizer::new_nfc().static_to_owned(),
+            ))),
+            "any-nfkc" => Some(Ok(InternalTransliterator::Composing(
+                ComposingNormalizer::new_nfkc().static_to_owned(),
+            ))),
+            "any-nfd" => Some(Ok(InternalTransliterator::Decomposing(
+                DecomposingNormalizer::new_nfd().static_to_owned(),
+            ))),
+            "any-nfkd" => Some(Ok(InternalTransliterator::Decomposing(
+                DecomposingNormalizer::new_nfkd().static_to_owned(),
+            ))),
+            "any-lower" => Some(Ok(InternalTransliterator::Lower(
+                CaseMapper::new().static_to_owned(),
+            ))),
+            "any-upper" => Some(Ok(InternalTransliterator::Upper(
+                CaseMapper::new().static_to_owned(),
+            ))),
+            _ => None,
+        }
+    }
+}
+
+struct ProviderSpecialLoader<'a, PN: ?Sized, PC: ?Sized> {
+    normalizer_provider: &'a PN,
+    casemap_provider: &'a PC,
+}
+
+impl<PN, PC> SpecialLoader for ProviderSpecialLoader<'_, PN, PC>
+where
+    PN: ?Sized
+        + DataProvider<NormalizerNfdDataV1>
+        + DataProvider<NormalizerNfkdDataV1>
+        + DataProvider<NormalizerNfdTablesV1>
+        + DataProvider<NormalizerNfkdTablesV1>
+        + DataProvider<NormalizerNfcV2>,
+    PC: ?Sized + DataProvider<CaseMapV1>,
+{
+    fn load_special(&self, special: &str) -> Option<Result<InternalTransliterator, DataError>> {
+        if let Some(builtin) = load_builtin_special(special) {
+            return Some(Ok(builtin));
+        }
+        // TODO(#3909, #3910): add more
+        match special {
+            "any-nfc" => Some(
+                ComposingNormalizer::try_new_nfc_unstable(self.normalizer_provider)
+                    .map(InternalTransliterator::Composing),
+            ),
+            "any-nfkc" => Some(
+                ComposingNormalizer::try_new_nfkc_unstable(self.normalizer_provider)
+                    .map(InternalTransliterator::Composing),
+            ),
+            "any-nfd" => Some(
+                DecomposingNormalizer::try_new_nfd_unstable(self.normalizer_provider)
+                    .map(InternalTransliterator::Decomposing),
+            ),
+            "any-nfkd" => Some(
+                DecomposingNormalizer::try_new_nfkd_unstable(self.normalizer_provider)
+                    .map(InternalTransliterator::Decomposing),
+            ),
+            "any-lower" => Some(
+                CaseMapper::try_new_unstable(self.casemap_provider)
+                    .map(InternalTransliterator::Lower),
+            ),
+            "any-upper" => Some(
+                CaseMapper::try_new_unstable(self.casemap_provider)
+                    .map(InternalTransliterator::Upper),
+            ),
+            _ => None,
+        }
+    }
+}
+
 impl Transliterator {
     /// Construct a [`Transliterator`] from the given [`Locale`].
     ///
@@ -495,11 +606,11 @@ impl Transliterator {
     #[cfg(feature = "compiled_data")]
     #[allow(unused_qualifications)]
     pub fn try_new(locale: &Locale) -> Result<Self, DataError> {
-        Self::try_new_unstable(
-            &crate::provider::Baked,
-            &icu_normalizer::provider::Baked,
-            &icu_casemap::provider::Baked,
+        Self::internal_try_new_with_override(
             locale,
+            None,
+            &crate::provider::Baked,
+            &CompiledSpecialLoader,
         )
     }
 
@@ -534,12 +645,14 @@ impl Transliterator {
             + DataProvider<NormalizerNfcV2>
             + ?Sized,
     {
-        Self::internal_try_new_with_override_unstable(
+        Self::internal_try_new_with_override(
             locale,
-            None::<&fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>>,
+            None,
             transliterator_provider,
-            normalizer_provider,
-            casemap_provider,
+            &ProviderSpecialLoader {
+                normalizer_provider,
+                casemap_provider,
+            },
         )
     }
 
@@ -590,12 +703,11 @@ impl Transliterator {
     where
         F: Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>,
     {
-        Self::try_new_with_override_unstable(
-            &crate::provider::Baked,
-            &icu_normalizer::provider::Baked,
-            &icu_casemap::provider::Baked,
+        Self::internal_try_new_with_override(
             locale,
-            lookup,
+            Some(&lookup),
+            &crate::provider::Baked,
+            &CompiledSpecialLoader,
         )
     }
 
@@ -637,32 +749,25 @@ impl Transliterator {
             + ?Sized,
         F: Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>,
     {
-        Self::internal_try_new_with_override_unstable(
+        Self::internal_try_new_with_override(
             locale,
             Some(&lookup),
             transliterator_provider,
-            normalizer_provider,
-            casemap_provider,
+            &ProviderSpecialLoader {
+                normalizer_provider,
+                casemap_provider,
+            },
         )
     }
 
-    fn internal_try_new_with_override_unstable<PN, PT, PC, F>(
+    fn internal_try_new_with_override<PT>(
         locale: &Locale,
-        lookup: Option<&F>,
+        lookup: Option<OverrideLookup<'_>>,
         transliterator_provider: &PT,
-        normalizer_provider: &PN,
-        casemap_provider: &PC,
+        special_loader: &dyn SpecialLoader,
     ) -> Result<Transliterator, DataError>
     where
         PT: DataProvider<TransliteratorRulesV1> + ?Sized,
-        PC: DataProvider<CaseMapV1> + ?Sized,
-        PN: DataProvider<NormalizerNfdDataV1>
-            + DataProvider<NormalizerNfkdDataV1>
-            + DataProvider<NormalizerNfdTablesV1>
-            + DataProvider<NormalizerNfkdTablesV1>
-            + DataProvider<NormalizerNfcV2>
-            + ?Sized,
-        F: Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>,
     {
         let mut env = LiteMap::new();
 
@@ -671,8 +776,7 @@ impl Transliterator {
             DataMarkerAttributes::try_from_str(&locale.to_string().to_ascii_lowercase()).unwrap(),
             lookup,
             transliterator_provider,
-            normalizer_provider,
-            casemap_provider,
+            special_loader,
             false,
             &mut env,
         )?;
@@ -683,25 +787,16 @@ impl Transliterator {
         })
     }
 
-    fn load_rbt<PT, PN, PC, F>(
+    fn load_rbt<PT>(
         marker_attributes: &DataMarkerAttributes,
-        lookup: Option<&F>,
+        lookup: Option<OverrideLookup<'_>>,
         transliterator_provider: &PT,
-        normalizer_provider: &PN,
-        casemap_provider: &PC,
+        special_loader: &dyn SpecialLoader,
         allow_internal: bool,
         env: &mut LiteMap<String, InternalTransliterator>,
     ) -> Result<DataPayload<TransliteratorRulesV1>, DataError>
     where
         PT: DataProvider<TransliteratorRulesV1> + ?Sized,
-        PC: DataProvider<CaseMapV1> + ?Sized,
-        PN: DataProvider<NormalizerNfdDataV1>
-            + DataProvider<NormalizerNfkdDataV1>
-            + DataProvider<NormalizerNfdTablesV1>
-            + DataProvider<NormalizerNfkdTablesV1>
-            + DataProvider<NormalizerNfcV2>
-            + ?Sized,
-        F: Fn(&Locale) -> Option<Result<Box<dyn CustomTransliterator>, DataError>>,
     {
         let req = DataRequest {
             id: DataIdentifierBorrowed::for_marker_attributes(marker_attributes),
@@ -718,7 +813,7 @@ impl Transliterator {
                 // Load the transliterator, by checking
                 let internal_t =
                     // a) hardcoded specials
-                    Transliterator::load_special(&dep, normalizer_provider, casemap_provider)
+                    special_loader.load_special(&dep)
                     // b) the user-provided override
                     .or_else(|| Some(lookup?(&dep.parse().ok()?)?.map(InternalTransliterator::Dyn)))
                     // c) the data
@@ -728,8 +823,7 @@ impl Transliterator {
                             DataMarkerAttributes::try_from_str(&dep.to_ascii_lowercase()).unwrap(),
                             lookup,
                             transliterator_provider,
-                            normalizer_provider,
-                            casemap_provider,
+                            special_loader,
                             true,
                             env,
                         ).map(InternalTransliterator::RuleBased)
@@ -738,67 +832,6 @@ impl Transliterator {
             }
         }
         Ok(transliterator)
-    }
-
-    fn load_special<PN, PD>(
-        special: &str,
-        normalizer_provider: &PN,
-        casemapper_provider: &PD,
-    ) -> Option<Result<InternalTransliterator, DataError>>
-    where
-        PN: ?Sized
-            + DataProvider<NormalizerNfdDataV1>
-            + DataProvider<NormalizerNfkdDataV1>
-            + DataProvider<NormalizerNfdTablesV1>
-            + DataProvider<NormalizerNfkdTablesV1>
-            + DataProvider<NormalizerNfcV2>,
-        PD: ?Sized + DataProvider<CaseMapV1>,
-    {
-        // TODO(#3909, #3910): add more
-        match special {
-            "any-nfc" => Some(
-                ComposingNormalizer::try_new_nfc_unstable(normalizer_provider)
-                    .map(InternalTransliterator::Composing),
-            ),
-            "any-nfkc" => Some(
-                ComposingNormalizer::try_new_nfkc_unstable(normalizer_provider)
-                    .map(InternalTransliterator::Composing),
-            ),
-            "any-nfd" => Some(
-                DecomposingNormalizer::try_new_nfd_unstable(normalizer_provider)
-                    .map(InternalTransliterator::Decomposing),
-            ),
-            "any-nfkd" => Some(
-                DecomposingNormalizer::try_new_nfkd_unstable(normalizer_provider)
-                    .map(InternalTransliterator::Decomposing),
-            ),
-            "any-lower" => Some(
-                CaseMapper::try_new_unstable(casemapper_provider)
-                    .map(InternalTransliterator::Lower),
-            ),
-            "any-upper" => Some(
-                CaseMapper::try_new_unstable(casemapper_provider)
-                    .map(InternalTransliterator::Upper),
-            ),
-            "any-null" => Some(Ok(InternalTransliterator::Null)),
-            "any-remove" => Some(Ok(InternalTransliterator::Remove)),
-            "any-hex/unicode" => Some(Ok(InternalTransliterator::Hex(
-                hardcoded::HexTransliterator::new("U+", "", 4, Case::Upper),
-            ))),
-            "any-hex/rust" => Some(Ok(InternalTransliterator::Hex(
-                hardcoded::HexTransliterator::new("\\u{", "}", 2, Case::Lower),
-            ))),
-            "any-hex/xml" => Some(Ok(InternalTransliterator::Hex(
-                hardcoded::HexTransliterator::new("&#x", ";", 1, Case::Upper),
-            ))),
-            "any-hex/perl" => Some(Ok(InternalTransliterator::Hex(
-                hardcoded::HexTransliterator::new("\\x{", "}", 1, Case::Upper),
-            ))),
-            "any-hex/plain" => Some(Ok(InternalTransliterator::Hex(
-                hardcoded::HexTransliterator::new("", "", 4, Case::Upper),
-            ))),
-            _ => None,
-        }
     }
 
     // Before stabilization, consider the input type we want to accept here. We might want to
@@ -915,12 +948,11 @@ impl Rule<'_> {
 
     /// Returns `None` if there is no match. If there is a match, returns the associated
     /// [`MatchData`] and [`RepMatcher`].
-    // Thought: RepMatcher<true> could be "FinishedRepMatcher"? but we can still match post..
     fn matches<'r1, 'r2>(
         &self,
-        mut matcher: RepMatcher<'r1, 'r2, false>,
+        mut matcher: RepMatcher<'r1, 'r2>,
         vt: &VarTable,
-    ) -> Option<(MatchData, RepMatcher<'r1, 'r2, true>)> {
+    ) -> Option<(MatchData, RepMatcher<'r1, 'r2>)> {
         let mut match_data = MatchData::new();
 
         if !self.ante_matches(&mut matcher, &mut match_data, vt) {
@@ -931,7 +963,7 @@ impl Rule<'_> {
             return None;
         }
 
-        let mut matcher = matcher.finish_key();
+        matcher.finish_key();
 
         if !self.post_matches(&mut matcher, &mut match_data, vt) {
             return None;
@@ -1835,6 +1867,55 @@ mod tests {
         let input = "\0äa\u{10FFFF}❤!";
         let output = "U+0000U+00E4U+0061U+10FFFFU+2764U+0021";
         assert_eq!(t.transliterate(input.to_string()), output);
+    }
+
+    #[test]
+    fn test_hex_variants_empty_and_filtered() {
+        let cases = [
+            ("::Hex/XML;", "\0a❤", "&#x0;&#x61;&#x2764;"),
+            ("::Hex/Perl;", "\0a❤", r"\x{0}\x{61}\x{2764}"),
+            ("::Hex/Plain;", "\0a❤", "000000612764"),
+            ("::Hex/Rust;", "", ""),
+            ("::[a-z] Hex/Rust;", "AbcD", r"A\u{62}\u{63}D"),
+        ];
+        for (rule, input, expected) in cases {
+            let mut collection = RuleCollection::default();
+            collection.register_source(&"und-x-test".parse().unwrap(), rule, [], false, true);
+            let t = Transliterator::try_new_unstable(
+                &collection.as_provider(),
+                &icu_normalizer::provider::Baked,
+                &icu_casemap::provider::Baked,
+                &"und-x-test".parse().unwrap(),
+            )
+            .unwrap();
+            assert_eq!(t.transliterate(input.to_string()), expected);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "compiled_data")]
+    fn test_compiled_special_loader() {
+        let specials = [
+            ("any-nfc", "e\u{0301}", "\u{00e9}"),
+            ("any-nfkc", "\u{FB01}e\u{0301}", "fi\u{00e9}"),
+            ("any-nfd", "\u{00e9}", "e\u{0301}"),
+            ("any-nfkd", "\u{FB01}\u{00e9}", "fie\u{0301}"),
+            ("any-lower", "ABC", "abc"),
+            ("any-upper", "abc", "ABC"),
+            ("any-null", "abc", "abc"),
+            ("any-remove", "abc", ""),
+            ("any-hex/rust", "a", r"\u{61}"),
+        ];
+        for (special, input, expected) in specials {
+            let loaded = CompiledSpecialLoader
+                .load_special(special)
+                .unwrap()
+                .unwrap();
+            let mut buf = TransliteratorBuffer::from_string(input.to_string());
+            loaded.transliterate(Replaceable::new(&mut buf), &Env::new());
+            assert_eq!(buf.into_string(), expected, "special {special}");
+        }
+        assert!(CompiledSpecialLoader.load_special("unknown").is_none());
     }
 
     #[test]

@@ -667,7 +667,15 @@ mod tests {
     use crate::transliterate::provider as ds;
     use icu_locale_core::locale;
     use std::collections::HashSet;
-    use zerovec::{VarZeroVec, vecs::Index32};
+    use zerovec::VarZeroVec;
+
+    fn pack_rules(rules: &[(&str, &str, &str, &str)]) -> ds::Rules<'static> {
+        let mut out = ds::Rules::new();
+        for &(ante, key, post, replacer) in rules {
+            out.push(ante, key, post, replacer);
+        }
+        out
+    }
 
     fn parse_set(source: &str) -> parse::UnicodeSet {
         icu_properties::unicodeset_parse::parse_unstable(source, &icu_properties::provider::Baked)
@@ -762,37 +770,18 @@ mod tests {
                 VarZeroVec::from(&expected_id_group3),
             ];
 
-            let expected_rule_group1 = vec![
-                ds::Rule {
-                    ante: Cow::Borrowed(""),
-                    key: Cow::Borrowed("x"),
-                    post: Cow::Borrowed("\u{F0002}"),
-                    replacer: Cow::Borrowed("\u{F0007}y"), // `|@@@`
-                },
-                ds::Rule {
-                    ante: Cow::Borrowed(""),
-                    key: Cow::Borrowed("\u{F0000}"),
-                    post: Cow::Borrowed(""),
-                    replacer: Cow::Borrowed("ab"),
-                },
-                ds::Rule {
-                    ante: Cow::Borrowed(""),
-                    key: Cow::Borrowed("\u{FFFFC}left"),
-                    post: Cow::Borrowed("\u{FFFFD}"),
-                    replacer: Cow::Borrowed("rig\u{FFFFB}ht"), // `|`
-                },
-            ];
-            let expected_rule_group2 = vec![ds::Rule {
-                ante: Cow::Borrowed(""),
-                key: Cow::Borrowed("forwardrulethat"),
-                post: Cow::Borrowed(""),
-                replacer: Cow::Borrowed("splitsuprulegroups"),
-            }];
+            let expected_rule_group1 = pack_rules(&[
+                ("", "x", "\u{F0002}", "\u{F0007}y"), // `|@@@`
+                ("", "\u{F0000}", "", "ab"),
+                ("", "\u{FFFFC}left", "\u{FFFFD}", "rig\u{FFFFB}ht"), // `|`
+            ]);
+            let expected_rule_group2 =
+                pack_rules(&[("", "forwardrulethat", "", "splitsuprulegroups")]);
 
-            let expected_rule_group_list: Vec<VarZeroVec<'_, ds::RuleULE, Index32>> = vec![
-                VarZeroVec::from(&expected_rule_group1),
-                VarZeroVec::from(&expected_rule_group2),
-                VarZeroVec::new(), // empty rule group after the last transform rule
+            let expected_rule_group_list = vec![
+                expected_rule_group1,
+                expected_rule_group2,
+                ds::Rules::new(), // empty rule group after the last transform rule
             ];
 
             let expected_compounds = vec![
@@ -864,23 +853,12 @@ mod tests {
                 VarZeroVec::from(&expected_id_group2),
             ];
 
-            let expected_rule_group1 = vec![
-                ds::Rule {
-                    ante: Cow::Borrowed(""),
-                    key: Cow::Borrowed("\u{F0004}"),
-                    post: Cow::Borrowed(""),
-                    replacer: Cow::Borrowed("reverse output:\u{F0008}\u{F000A}"), /* `@@|` and function call */
-                },
-                ds::Rule {
-                    ante: Cow::Borrowed("\u{FFFFC}"), // start anchor
-                    key: Cow::Borrowed("right"),
-                    post: Cow::Borrowed("\u{F0007}\u{FFFFD}"), // [0-9] and end anchor
-                    replacer: Cow::Borrowed("left"),
-                },
-            ];
+            let expected_rule_group1 = pack_rules(&[
+                ("", "\u{F0004}", "", "reverse output:\u{F0008}\u{F000A}"), /* `@@|` and function call */
+                ("\u{FFFFC}", "right", "\u{F0007}\u{FFFFD}", "left"),       // [0-9] and anchors
+            ]);
 
-            let expected_rule_group_list: Vec<VarZeroVec<'_, ds::RuleULE, Index32>> =
-                vec![VarZeroVec::from(&expected_rule_group1), VarZeroVec::new()];
+            let expected_rule_group_list = vec![expected_rule_group1, ds::Rules::new()];
 
             let expected_compounds = vec![
                 "\u{F0005}\u{F0003}",     // $a = [a] [b]+ (quantifier contains [b])

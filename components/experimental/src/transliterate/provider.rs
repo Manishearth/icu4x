@@ -15,9 +15,11 @@
 //!
 //! Read more about data providers: [`icu_provider`]
 
+use core::fmt::{self, Debug, Formatter};
 use core::ops::RangeInclusive;
 
 use alloc::borrow::Cow;
+use alloc::string::String;
 
 use icu_collections::{
     codepointinvlist::{CodePointInversionList, CodePointInversionListULE},
@@ -55,7 +57,7 @@ pub struct RuleBasedTransliterator<'a> {
     /// The list of transform rule groups this transliterator uses.
     pub id_group_list: VarZeroVec<'a, VarZeroSlice<SimpleIdULE>>,
     /// The list of conversion rule groups this transliterator uses.
-    pub rule_group_list: VarZeroVec<'a, VarZeroSlice<RuleULE, Index32>, Index32>,
+    pub rule_group_list: VarZeroVec<'a, RulesULE, Index32>,
 }
 
 icu_provider::data_struct!(RuleBasedTransliterator<'_>, #[cfg(feature = "datagen")]);
@@ -77,7 +79,7 @@ impl<'de> serde::Deserialize<'de> for RuleBasedTransliterator<'de> {
             #[serde(borrow)]
             pub id_group_list: VarZeroVec<'a, VarZeroSlice<SimpleIdULE>>,
             #[serde(borrow)]
-            pub rule_group_list: VarZeroVec<'a, VarZeroSlice<RuleULE, Index32>, Index32>,
+            pub rule_group_list: VarZeroVec<'a, RulesULE, Index32>,
         }
 
         let Raw {
@@ -145,12 +147,14 @@ pub struct SimpleId<'a> {
     pub id: Cow<'a, str>,
 }
 
-/// A conversion rule. The source patterns as well as the replacer use inlined private use characters
-/// that refer to elements of the [`VarTable`] for special matchers (variables, `UnicodeSets`, ...).
-#[derive(Debug, Clone)]
-#[make_varule(RuleULE)]
+/// A group of conversion rules packed into a single UTF-8 string.
+///
+/// Source patterns and replacers use inlined private-use characters that refer to
+/// elements of the [`VarTable`] for special matchers (variables, `UnicodeSets`, ...).
+#[make_varule(RulesULE)]
 #[zerovec::skip_derive(Ord)]
 #[zerovec::derive(Debug)]
+#[derive(Clone, Default, PartialEq, Eq)]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize),
@@ -161,19 +165,125 @@ pub struct SimpleId<'a> {
     derive(serde::Serialize),
     zerovec::derive(Serialize)
 )]
-pub struct Rule<'a> {
-    /// The pattern for the ante context. This is not replaced.
-    #[cfg_attr(feature = "serde", serde(borrow))]
-    pub ante: Cow<'a, str>,
-    /// The pattern for the key. This is what gets replaced.
-    #[cfg_attr(feature = "serde", serde(borrow))]
-    pub key: Cow<'a, str>,
-    /// The pattern for the post context. This is not replaced.
-    #[cfg_attr(feature = "serde", serde(borrow))]
-    pub post: Cow<'a, str>,
-    /// The replacer. The key gets replaced with this.
-    #[cfg_attr(feature = "serde", serde(borrow))]
-    pub replacer: Cow<'a, str>,
+pub struct Rules<'a>(#[cfg_attr(feature = "serde", serde(borrow))] Cow<'a, str>);
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct RawRule<'a> {
+    pub(crate) ante: &'a str,
+    pub(crate) key: &'a str,
+    pub(crate) post: &'a str,
+    pub(crate) replacer: &'a str,
+}
+
+impl Debug for Rules<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(iter_rules(&self.0)).finish()
+    }
+}
+
+fn push_len(out: &mut String, mut n: usize) {
+    while n >= 0x40 {
+        out.push((0x40 | (n & 0x3F) as u8) as char);
+        n >>= 6;
+    }
+    out.push((n as u8) as char);
+}
+
+fn read_len(s: &mut &str) -> Option<usize> {
+    let mut n = 0usize;
+    let mut shift = 0u32;
+    loop {
+        let &b = s.as_bytes().first()?;
+        if b >= 0x80 {
+            return None;
+        }
+        *s = s.get(1..)?;
+        n |= ((b & 0x3F) as usize).checked_shl(shift)?;
+        if b < 0x40 {
+            return Some(n);
+        }
+        shift += 6;
+    }
+}
+
+fn iter_rules(mut group: &str) -> impl Iterator<Item = RawRule<'_>> {
+    core::iter::from_fn(move || {
+        let &hdr = group.as_bytes().first()?;
+        if hdr >= 0x80 {
+            return None;
+        }
+        group = group.get(1..)?;
+        let (ante_len, key_len, post_len, repl_len) = if hdr < 0x7F {
+            (0, (hdr >> 4) as usize, 0, (hdr & 0x0F) as usize)
+        } else {
+            (
+                read_len(&mut group)?,
+                read_len(&mut group)?,
+                read_len(&mut group)?,
+                read_len(&mut group)?,
+            )
+        };
+        let (ante, rest) = group.split_at_checked(ante_len)?;
+        let (key, rest) = rest.split_at_checked(key_len)?;
+        let (post, rest) = rest.split_at_checked(post_len)?;
+        let (replacer, rest) = rest.split_at_checked(repl_len)?;
+        group = rest;
+        Some(RawRule {
+            ante,
+            key,
+            post,
+            replacer,
+        })
+    })
+}
+
+impl Rules<'static> {
+    pub(crate) const EMPTY: Self = Self(Cow::Borrowed(""));
+
+    pub(crate) const fn new() -> Self {
+        Self::EMPTY
+    }
+}
+
+impl Rules<'_> {
+    #[cfg(feature = "compiled_data")]
+    pub(crate) fn into_owned(self) -> Rules<'static> {
+        Rules(Cow::Owned(self.0.into_owned()))
+    }
+
+    pub(crate) fn push(&mut self, ante: &str, key: &str, post: &str, replacer: &str) {
+        let out = self.0.to_mut();
+        // Use a 1-byte header when contexts are empty and lengths fit in 3+4 bits;
+        // 0x7F (which would collide with key_len=7, replacer_len=15) is the general escape prefix.
+        if ante.is_empty() && post.is_empty() && key.len() < 8 && replacer.len() < 16 {
+            let hdr = ((key.len() as u8) << 4) | (replacer.len() as u8);
+            if hdr < 0x7F {
+                out.push(hdr as char);
+                out.push_str(key);
+                out.push_str(replacer);
+                return;
+            }
+        }
+        out.push('\x7F');
+        push_len(out, ante.len());
+        push_len(out, key.len());
+        push_len(out, post.len());
+        push_len(out, replacer.len());
+        out.push_str(ante);
+        out.push_str(key);
+        out.push_str(post);
+        out.push_str(replacer);
+    }
+}
+
+impl RulesULE {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = RawRule<'_>> {
+        iter_rules(&self.0)
+    }
 }
 
 /// The special matchers and replacers used by this transliterator.
@@ -274,4 +384,46 @@ pub struct FunctionCall<'a> {
     #[cfg_attr(feature = "serde", serde(borrow))]
     /// The argument to be transliterated given to the transliterator.
     pub arg: Cow<'a, str>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec::Vec;
+
+    #[test]
+    fn roundtrip_packed_rules() {
+        let long_a = "a".repeat(70);
+        let long_b = "é".repeat(2100); // 4200 UTF-8 bytes
+        let cases = [
+            ("", "", "", ""),
+            ("", "a", "", "b"),
+            ("", "1234567", "", "0123456789abcd"), // (7, 14) fast path
+            ("", "1234567", "", "0123456789abcde"), // (7, 15) 0x7F collision guard
+            ("^", "right", "0", "left"),
+            ("", long_a.as_str(), "", long_b.as_str()),
+        ];
+        let mut packed = Rules::new();
+        for &(a, k, p, r) in &cases {
+            packed.push(a, k, p, r);
+        }
+        let vzv: VarZeroVec<'_, RulesULE, Index32> = VarZeroVec::from(&[packed]);
+        let ule = vzv.get(0).unwrap();
+        assert!(!ule.is_empty());
+        let decoded: Vec<_> = ule
+            .iter()
+            .map(|r| (r.ante, r.key, r.post, r.replacer))
+            .collect();
+        assert_eq!(decoded, cases);
+        assert_eq!(iter_rules("\u{80}bad").count(), 0);
+        assert_eq!(iter_rules("\x11a").count(), 0);
+        assert!(RulesULE::from_bytes_unchecked_empty_check());
+    }
+
+    impl RulesULE {
+        fn from_bytes_unchecked_empty_check() -> bool {
+            let vzv: VarZeroVec<'_, RulesULE, Index32> = VarZeroVec::from(&[Rules::EMPTY]);
+            vzv.get(0).unwrap().is_empty()
+        }
+    }
 }

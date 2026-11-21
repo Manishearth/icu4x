@@ -7,7 +7,9 @@
 mod hardcoded;
 mod replaceable;
 
-use crate::transliterate::provider::{FunctionCall, Rule, RuleULE, SimpleId, VarTable};
+#[cfg(feature = "compiled_data")]
+use crate::transliterate::provider::Rules;
+use crate::transliterate::provider::{FunctionCall, RawRule, RulesULE, SimpleId, VarTable};
 use crate::transliterate::provider::{RuleBasedTransliterator, Segment, TransliteratorRulesV1};
 use crate::transliterate::transliterator::hardcoded::Case;
 use alloc::borrow::Cow;
@@ -28,8 +30,6 @@ use icu_provider::prelude::*;
 use litemap::LiteMap;
 use replaceable::*;
 use zerofrom::ZeroFrom;
-use zerovec::VarZeroSlice;
-use zerovec::vecs::Index32;
 
 type Filter<'a> = CodePointInversionList<'a>;
 
@@ -238,31 +238,22 @@ impl TransliteratorBuilder {
             let rule_group_list = r.rule_group_list.make_mut();
 
             let mut group = if rule_group_list.is_empty() {
-                Default::default()
+                Rules::new()
             } else {
-                let g = rule_group_list
-                    .get(rule_group_list.len() - 1)
-                    .unwrap()
-                    .as_varzerovec()
+                let g = Rules::from(rule_group_list.get(rule_group_list.len() - 1).unwrap())
                     .into_owned();
                 rule_group_list.remove(rule_group_list.len() - 1);
                 g
             };
-            group.make_mut().push(&Rule {
-                key: Cow::Owned(String::from(
-                    // We can just use the index in the unicode_sets list because that's the only
-                    // part of the variable table we use. If we used any of the other fields,
-                    // we'd have to update all rules that use those indices on every insertion,
-                    // as an insertion pushes the following indices up by one.
-                    char::from_u32(
-                        VarTable::BASE as u32 + r.variable_table.unicode_sets.len() as u32,
-                    )
+            // We can just use the index in the unicode_sets list because that's the only
+            // part of the variable table we use. If we used any of the other fields,
+            // we'd have to update all rules that use those indices on every insertion,
+            // as an insertion pushes the following indices up by one.
+            let key = String::from(
+                char::from_u32(VarTable::BASE as u32 + r.variable_table.unicode_sets.len() as u32)
                     .unwrap(),
-                )),
-                replacer: Cow::Owned(replacer),
-                ante: Cow::Borrowed(""),
-                post: Cow::Borrowed(""),
-            });
+            );
+            group.push("", &key, "", &replacer);
             rule_group_list.push(&group);
 
             r.variable_table.unicode_sets.make_mut().push(&matcher);
@@ -341,7 +332,7 @@ impl TransliteratorBuilder {
                 .make_mut()
                 .push::<&[SimpleId]>(&[].as_slice());
 
-            r.rule_group_list.make_mut().push::<&[Rule]>(&[].as_slice());
+            r.rule_group_list.make_mut().push(&Rules::EMPTY);
         });
 
         self
@@ -374,7 +365,7 @@ impl TransliteratorBuilder {
                 .make_mut()
                 .push(&[SimpleId { filter, id }].as_slice());
 
-            r.rule_group_list.make_mut().push::<&[Rule]>(&[].as_slice());
+            r.rule_group_list.make_mut().push(&Rules::EMPTY);
         });
     }
 
@@ -834,7 +825,6 @@ impl RuleBasedTransliterator<'_> {
                 }
 
                 // then handle rule_group
-                let rule_group = RuleGroup::from(rule_group);
                 rule_group.transliterate(run.child(), &self.variable_table, env);
             }
             // eprintln!("finished RBT filtered_run transliteration: {run:?}")
@@ -854,19 +844,11 @@ impl SimpleId<'_> {
     }
 }
 
-struct RuleGroup<'a> {
-    rules: &'a VarZeroSlice<RuleULE, Index32>,
-}
-
-impl<'a> RuleGroup<'a> {
-    fn from(rules: &'a VarZeroSlice<RuleULE, Index32>) -> Self {
-        Self { rules }
-    }
-
+impl RulesULE {
     fn transliterate(&self, mut rep: Replaceable, vt: &VarTable, env: &Env) {
-        // no need to split into runs, because a RuleGroup has no filters.
+        // no need to split into runs, because a RulesULE has no filters.
 
-        if self.rules.is_empty() {
+        if self.is_empty() {
             // empty rule group, nothing to do
             return;
         }
@@ -877,9 +859,8 @@ impl<'a> RuleGroup<'a> {
         // note that we're stopping transliteration at the end _even though empty rules might still match_.
         // this behavior is copied from ICU4C/J.
         'main: while !rep.is_finished() {
-            // eprintln!("ongoing RuleGroup transliteration:\n{rep:?}");
-            for rule in self.rules.iter() {
-                let rule: Rule = Rule::zero_from(rule);
+            // eprintln!("ongoing RulesULE transliteration:\n{rep:?}");
+            for rule in self.iter() {
                 // eprintln!("trying rule: {rule:?}");
                 let matcher = rep.start_match();
                 if let Some((data, matcher)) = rule.matches(matcher, vt) {
@@ -897,7 +878,7 @@ impl<'a> RuleGroup<'a> {
     }
 }
 
-impl Rule<'_> {
+impl RawRule<'_> {
     /// Applies this rule's replacement using the given [`MatchData`]. Updates the cursor of the
     /// current run.
     fn apply(&self, mut dest: Insertable, data: MatchData, vt: &VarTable, env: &Env) {
@@ -906,11 +887,11 @@ impl Rule<'_> {
         // which would make it easier to take segments into account at runtime.
         // there is no easy way to estimate the size of function calls, though.
         // TODO(#3957): benchmark with and without this optimization
-        let replacement_size_estimate = estimate_replacement_size(&self.replacer, &data, vt);
+        let replacement_size_estimate = estimate_replacement_size(self.replacer, &data, vt);
 
         dest.apply_size_hint(replacement_size_estimate);
 
-        replace_str_with_specials(&self.replacer, &mut dest, &data, vt, env);
+        replace_str_with_specials(self.replacer, &mut dest, &data, vt, env);
     }
 
     /// Returns `None` if there is no match. If there is a match, returns the associated
@@ -953,7 +934,7 @@ impl Rule<'_> {
             // fast path for empty queries, which always match
             return true;
         }
-        rev_match_str_with_specials(&self.ante, matcher, match_data, vt)
+        rev_match_str_with_specials(self.ante, matcher, match_data, vt)
     }
 
     /// Returns whether the post context matches or not. Fills in `match_data` if applicable.
@@ -969,7 +950,7 @@ impl Rule<'_> {
             // fast path for empty queries, which always match
             return true;
         }
-        match_str_with_specials(&self.post, matcher, match_data, vt)
+        match_str_with_specials(self.post, matcher, match_data, vt)
     }
 
     /// Returns whether the post context matches or not. Fills in `match_data` if applicable.
@@ -985,7 +966,7 @@ impl Rule<'_> {
             // fast path for empty queries, which always match
             return true;
         }
-        match_str_with_specials(&self.key, matcher, match_data, vt)
+        match_str_with_specials(self.key, matcher, match_data, vt)
     }
 }
 

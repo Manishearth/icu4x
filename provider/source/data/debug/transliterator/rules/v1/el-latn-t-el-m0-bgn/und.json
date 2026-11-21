@@ -3,7 +3,7 @@
   "variable_table": {
     "compounds": [
       "󰀡",
-      "󰀮"
+      "󰀪"
     ],
     "quantifiers_opt": [],
     "quantifiers_kleene": [],
@@ -1117,19 +1117,6 @@
       },
       {
         "cp_inv_list": [
-          "α-β",
-          "δ",
-          "ζ",
-          "θ",
-          "κ-ν",
-          "ο-τ",
-          "φ",
-          "ψ-ω"
-        ],
-        "str_list": []
-      },
-      {
-        "cp_inv_list": [
           "Α",
           "Ε",
           "Ο",
@@ -1166,33 +1153,8 @@
       },
       {
         "cp_inv_list": [
-          "α",
-          "ε",
-          "ο",
-          "υ"
-        ],
-        "str_list": []
-      },
-      {
-        "cp_inv_list": [
-          "ε",
-          "η",
-          "ι",
-          "υ"
-        ],
-        "str_list": []
-      },
-      {
-        "cp_inv_list": [
           "Ξ",
           "Χ"
-        ],
-        "str_list": []
-      },
-      {
-        "cp_inv_list": [
-          "ξ",
-          "χ"
         ],
         "str_list": []
       },
@@ -1775,7 +1737,7 @@
       {
         "ante": "",
         "key": "γ",
-        "post": "󰀤",
+        "post": "󰀣",
         "replacer": "g"
       },
       {
@@ -1787,55 +1749,55 @@
       {
         "ante": "",
         "key": "Γ",
-        "post": "󰀥Ι",
+        "post": "󰀤Ι",
         "replacer": "Y"
       },
       {
         "ante": "",
         "key": "Γ",
-        "post": "󰀦",
+        "post": "󰀥",
         "replacer": "Y"
       },
       {
         "ante": "",
         "key": "Γ",
-        "post": "󰀧ι",
+        "post": "󰀦ι",
         "replacer": "Y"
+      },
+      {
+        "ante": "",
+        "key": "Γ",
+        "post": "󰀧",
+        "replacer": "Y"
+      },
+      {
+        "ante": "",
+        "key": "γ",
+        "post": "󰀦ι",
+        "replacer": "y"
+      },
+      {
+        "ante": "",
+        "key": "γ",
+        "post": "󰀧",
+        "replacer": "y"
       },
       {
         "ante": "",
         "key": "Γ",
         "post": "󰀨",
-        "replacer": "Y"
-      },
-      {
-        "ante": "",
-        "key": "γ",
-        "post": "󰀩ι",
-        "replacer": "y"
-      },
-      {
-        "ante": "",
-        "key": "γ",
-        "post": "󰀪",
-        "replacer": "y"
-      },
-      {
-        "ante": "",
-        "key": "Γ",
-        "post": "󰀫",
         "replacer": "N"
       },
       {
         "ante": "",
         "key": "Γ",
-        "post": "󰀬",
+        "post": "󰀩",
         "replacer": "N"
       },
       {
         "ante": "",
         "key": "γ",
-        "post": "󰀭",
+        "post": "󰀩",
         "replacer": "n"
       },
       {

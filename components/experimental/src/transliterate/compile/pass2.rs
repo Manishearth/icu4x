@@ -5,7 +5,7 @@
 use super::*;
 use crate::transliterate::provider as ds;
 use alloc::borrow::ToOwned;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::ToString;
 use core::fmt::{self, Display, Formatter};
 use icu_collections::codepointinvlist::CodePointInversionList;
@@ -142,12 +142,6 @@ impl MutVarTable {
         unicode_sets.base
     );
     impl_insert!(
-        insert_unicode_set,
-        unicode_sets,
-        parse::UnicodeSet,
-        function_calls.base
-    );
-    impl_insert!(
         insert_function_call,
         function_calls,
         ds::FunctionCall<'static>,
@@ -228,6 +222,52 @@ impl Display for LiteralOrStandin<'_> {
     }
 }
 
+fn uset_key(set: &parse::UnicodeSet) -> Vec<u8> {
+    zerovec::ule::VarULE::as_bytes(&*zerovec::ule::encode_varule_to_box(set)).to_vec()
+}
+
+struct USetDedup<'a> {
+    var_definitions: &'a BTreeMap<String, &'a [parse::Element]>,
+    seen_vars: BTreeSet<&'a str>,
+    map: BTreeMap<Vec<u8>, usize>,
+    vec: Vec<parse::UnicodeSet>,
+}
+
+impl<'a> USetDedup<'a> {
+    fn visit_section(&mut self, section: &'a [parse::Element], loc: parse::ElementLocation) {
+        for elt in section {
+            if !elt.kind().skipped_in(loc) {
+                self.visit_elt(elt, loc);
+            }
+        }
+    }
+
+    fn visit_elt(&mut self, elt: &'a parse::Element, loc: parse::ElementLocation) {
+        match elt {
+            parse::Element::VariableRef(v) => {
+                if self.seen_vars.insert(v.as_str())
+                    && let Some(def) = self.var_definitions.get(v.as_str())
+                {
+                    self.visit_section(def, parse::ElementLocation::VariableDefinition);
+                }
+            }
+            parse::Element::Quantifier(_, inner) => self.visit_elt(inner, loc),
+            parse::Element::Segment(inner) | parse::Element::FunctionCall(_, inner) => {
+                self.visit_section(inner, loc);
+            }
+            parse::Element::UnicodeSet(set) => {
+                if let alloc::collections::btree_map::Entry::Vacant(e) =
+                    self.map.entry(uset_key(set))
+                {
+                    e.insert(self.vec.len());
+                    self.vec.push(set.clone());
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 pub(super) struct Pass2<'a, 'p> {
     var_table: MutVarTable,
     var_definitions: &'a BTreeMap<String, &'p [parse::Element]>,
@@ -235,6 +275,7 @@ pub(super) struct Pass2<'a, 'p> {
     id_mapping: &'a BTreeMap<String, Locale>,
     // the inverse of VarTable.compounds
     var_to_char: BTreeMap<String, char>,
+    uset_map: BTreeMap<Vec<u8>, usize>,
     // the current segment index (per conversion rule)
     curr_segment: u16,
 }
@@ -245,11 +286,32 @@ impl<'a, 'p> Pass2<'a, 'p> {
         var_definitions: &'a BTreeMap<String, &'p [parse::Element]>,
         id_mapping: &'a BTreeMap<String, Locale>,
     ) -> Result<ds::RuleBasedTransliterator<'static>> {
+        let mut dedup = USetDedup {
+            var_definitions,
+            seen_vars: BTreeSet::new(),
+            map: BTreeMap::new(),
+            vec: Vec::new(),
+        };
+        for (_, conversion_group) in &pass1.groups {
+            for rule in conversion_group {
+                dedup.visit_section(rule.ante, parse::ElementLocation::Source);
+                dedup.visit_section(rule.key, parse::ElementLocation::Source);
+                dedup.visit_section(rule.post, parse::ElementLocation::Source);
+                dedup.visit_section(rule.replacement, parse::ElementLocation::Target);
+            }
+        }
+        let mut counts = pass1.data.counts;
+        counts.num_unicode_sets = dedup.vec.len();
+        let mut var_table = MutVarTable::try_new_from_counts(counts)?;
+        var_table.unicode_sets.current = var_table.unicode_sets.base + dedup.vec.len() as u32;
+        var_table.unicode_sets.vec = dedup.vec;
+
         let mut pass2 = Pass2 {
-            var_table: MutVarTable::try_new_from_counts(pass1.data.counts)?,
+            var_table,
             var_definitions,
             id_mapping,
             var_to_char: BTreeMap::new(),
+            uset_map: dedup.map,
             curr_segment: 0,
         };
         let mut compiled_transform_groups: Vec<VarZeroVec<'static, ds::SimpleIdULE>> = Vec::new();
@@ -361,7 +423,11 @@ impl<'a, 'p> Pass2<'a, 'p> {
                 LiteralOrStandin::Standin(ds::VarTable::RESERVED_ANCHOR_START)
             }
             parse::Element::UnicodeSet(set) => {
-                let standin = self.var_table.insert_unicode_set(set.clone());
+                #[expect(clippy::unwrap_used)] // pre-collected across all active sections above
+                let idx = *self.uset_map.get(&uset_key(set)).unwrap();
+                #[expect(clippy::unwrap_used)] // constructor checks num_total <= NUM_DYNAMIC
+                let standin =
+                    char::try_from(self.var_table.unicode_sets.base + idx as u32).unwrap();
                 LiteralOrStandin::Standin(standin)
             }
             parse::Element::Segment(inner) => {

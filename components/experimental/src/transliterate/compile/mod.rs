@@ -944,4 +944,36 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    #[allow(unused_qualifications)]
+    fn test_unicode_set_dedup() {
+        let mut collection = RuleCollection::default();
+        let locale: Locale = "und-x-dedup".parse().unwrap();
+        collection.register_source(
+            &locale,
+            "$v = [a-z]; $v } [a-z] > x; [a-z] > y;",
+            [],
+            false,
+            true,
+        );
+        let provider = collection.as_provider();
+        let data: DataResponse<TransliteratorRulesV1> = provider
+            .load(DataRequest {
+                id: DataIdentifierBorrowed::for_marker_attributes(
+                    DataMarkerAttributes::from_str_or_panic("und-x-dedup"),
+                ),
+                ..Default::default()
+            })
+            .unwrap();
+        assert_eq!(data.payload.get().variable_table.unicode_sets.len(), 1);
+        let t = crate::transliterate::Transliterator::try_new_unstable(
+            &provider,
+            &icu_normalizer::provider::Baked,
+            &icu_casemap::provider::Baked,
+            &locale,
+        )
+        .unwrap();
+        assert_eq!(t.transliterate("ab".into()), "xy");
+    }
 }

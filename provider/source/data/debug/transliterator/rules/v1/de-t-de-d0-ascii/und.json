@@ -2182,62 +2182,7 @@
     ]
   ],
   "rule_group_list": [
-    [
-      {
-        "ante": "",
-        "key": "󰀃",
-        "post": "",
-        "replacer": "ae"
-      },
-      {
-        "ante": "",
-        "key": "󰀄",
-        "post": "",
-        "replacer": "oe"
-      },
-      {
-        "ante": "",
-        "key": "󰀅",
-        "post": "",
-        "replacer": "ue"
-      },
-      {
-        "ante": "",
-        "key": "󰀀",
-        "post": "󰀇",
-        "replacer": "Ae"
-      },
-      {
-        "ante": "",
-        "key": "󰀁",
-        "post": "󰀉",
-        "replacer": "Oe"
-      },
-      {
-        "ante": "",
-        "key": "󰀂",
-        "post": "󰀋",
-        "replacer": "Ue"
-      },
-      {
-        "ante": "",
-        "key": "󰀀",
-        "post": "",
-        "replacer": "AE"
-      },
-      {
-        "ante": "",
-        "key": "󰀁",
-        "post": "",
-        "replacer": "OE"
-      },
-      {
-        "ante": "",
-        "key": "󰀂",
-        "post": "",
-        "replacer": "UE"
-      }
-    ],
-    []
+    "B󰀃aeB󰀄oeB󰀅ue\u0000\u0004\u0004\u0002󰀀󰀇Ae\u0000\u0004\u0004\u0002󰀁󰀉Oe\u0000\u0004\u0004\u0002󰀂󰀋UeB󰀀AEB󰀁OEB󰀂UE",
+    ""
   ]
 }

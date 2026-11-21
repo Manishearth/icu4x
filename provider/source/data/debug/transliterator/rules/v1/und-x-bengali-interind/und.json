@@ -12,7 +12,7 @@
     "max_right_placeholder_count": 0
   },
   "filter": [
-    "\u0000-􏿿"
+    255
   ],
   "id_group_list": [
     []

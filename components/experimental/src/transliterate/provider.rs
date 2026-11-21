@@ -18,10 +18,11 @@
 use core::ops::RangeInclusive;
 
 use alloc::borrow::Cow;
+use alloc::vec::Vec;
 
 use icu_collections::{
-    codepointinvlist::{CodePointInversionList, CodePointInversionListULE},
-    codepointinvliststringlist::CodePointInversionListAndStringListULE,
+    codepointinvlist::CodePointInversionList,
+    codepointinvliststringlist::CodePointInversionListAndStringList,
 };
 use icu_provider::prelude::*;
 use vecs::Index32;
@@ -51,7 +52,7 @@ pub struct RuleBasedTransliterator<'a> {
     /// The [`VarTable`] containing any special matchers (variables, `UnicodeSets`, ...) used by this transliterator.
     pub variable_table: VarTable<'a>,
     /// The filter for this transliterator. If there is none, the set of all code points is used.
-    pub filter: CodePointInversionList<'a>,
+    pub filter: CodePointSet<'a>,
     /// The list of transform rule groups this transliterator uses.
     pub id_group_list: VarZeroVec<'a, VarZeroSlice<SimpleIdULE>>,
     /// The list of conversion rule groups this transliterator uses.
@@ -73,7 +74,7 @@ impl<'de> serde::Deserialize<'de> for RuleBasedTransliterator<'de> {
             #[serde(borrow)]
             pub variable_table: VarTable<'a>,
             #[serde(borrow)]
-            pub filter: CodePointInversionList<'a>,
+            pub filter: CodePointSet<'a>,
             #[serde(borrow)]
             pub id_group_list: VarZeroVec<'a, VarZeroSlice<SimpleIdULE>>,
             #[serde(borrow)]
@@ -137,12 +138,162 @@ impl RuleBasedTransliterator<'_> {
 )]
 pub struct SimpleId<'a> {
     /// The filter for the transliterator. If there is none, the set of all code points is used.
-    #[zerovec::varule(CodePointInversionListULE)]
+    #[zerovec::varule(CodePointSetULE)]
     #[cfg_attr(feature = "serde", serde(borrow))]
-    pub filter: CodePointInversionList<'a>,
+    pub filter: CodePointSet<'a>,
     /// The ID of the transliterator.
     #[cfg_attr(feature = "serde", serde(borrow))]
     pub id: Cow<'a, str>,
+}
+
+/// A set of Unicode code points encoded as delta-varint inclusive `(gap, len)` ranges (`[0xFF]` = all).
+#[make_varule(CodePointSetULE)]
+#[zerovec::skip_derive(Ord)]
+#[zerovec::derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, yoke::Yokeable, zerofrom::ZeroFrom)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize),
+    zerovec::derive(Deserialize)
+)]
+#[cfg_attr(
+    feature = "datagen",
+    derive(serde::Serialize, databake::Bake),
+    databake(path = icu_experimental::transliterate::provider),
+    zerovec::derive(Serialize)
+)]
+pub struct CodePointSet<'a>(
+    #[cfg_attr(feature = "serde", serde(borrow))]
+    #[doc(hidden)]
+    /// Delta-varint encoded inclusive `(gap, len)` range bytes (`[0xFF]` = all code points).
+    pub ZeroVec<'a, u8>,
+);
+
+impl CodePointSet<'static> {
+    pub(crate) const fn all() -> Self {
+        // [0xFF] cannot collide with any valid LEB128 sequence (continuation bit set on a 1-byte slice).
+        Self(ZeroSlice::from_ule_slice(&[0xFF]).as_zerovec())
+    }
+}
+
+impl CodePointSet<'_> {
+    pub(crate) fn from_inversion_list(list: &CodePointInversionList<'_>) -> CodePointSet<'static> {
+        if list == &CodePointInversionList::all() {
+            return CodePointSet::all();
+        }
+        let mut out = Vec::new();
+        let mut prev = 0u32;
+        for r in list.iter_ranges() {
+            let (start, end) = (*r.start(), *r.end());
+            push_varint(&mut out, start - prev);
+            push_varint(&mut out, end - start);
+            prev = end + 1;
+        }
+        CodePointSet(ZeroVec::alloc_from_slice(&out))
+    }
+
+    pub(crate) fn contains(&self, c: char) -> bool {
+        cp_set_contains(self.0.as_ule_slice(), c)
+    }
+}
+
+impl CodePointSetULE {
+    pub(crate) fn contains(&self, c: char) -> bool {
+        cp_set_contains(self.0.as_ule_slice(), c)
+    }
+}
+
+/// A `UnicodeSet` represented as a [`CodePointSet`] plus sorted multi-char strings.
+#[make_varule(UnicodeSetULE)]
+#[zerovec::skip_derive(Ord)]
+#[zerovec::derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize),
+    zerovec::derive(Deserialize)
+)]
+#[cfg_attr(
+    feature = "datagen",
+    derive(serde::Serialize),
+    zerovec::derive(Serialize)
+)]
+pub struct UnicodeSet<'a> {
+    /// The code points in this set.
+    #[zerovec::varule(CodePointSetULE)]
+    #[cfg_attr(feature = "serde", serde(borrow))]
+    pub code_points: CodePointSet<'a>,
+    /// Multi-code-point strings (and possibly the empty string) in sorted order.
+    #[cfg_attr(feature = "serde", serde(borrow))]
+    pub strings: VarZeroVec<'a, str>,
+}
+
+impl UnicodeSet<'_> {
+    pub(crate) fn from_inversion_list_and_strings(
+        set: &CodePointInversionListAndStringList<'_>,
+    ) -> UnicodeSet<'static> {
+        let strings: Vec<_> = set.strings().iter().collect();
+        UnicodeSet {
+            code_points: CodePointSet::from_inversion_list(set.code_points()),
+            strings: VarZeroVec::from(&strings),
+        }
+    }
+}
+
+impl UnicodeSetULE {
+    pub(crate) fn contains(&self, c: char) -> bool {
+        self.code_points().contains(c)
+    }
+
+    pub(crate) fn contains_empty(&self) -> bool {
+        self.strings().get(0) == Some("")
+    }
+}
+
+fn push_varint(out: &mut Vec<u8>, mut n: u32) {
+    while n >= 0x80 {
+        out.push((n & 0x7F) as u8 | 0x80);
+        n >>= 7;
+    }
+    out.push(n as u8);
+}
+
+fn read_varint(p: &mut &[u8]) -> Option<u32> {
+    let mut n = 0u32;
+    let mut shift = 0u32;
+    loop {
+        let (&b, rest) = p.split_first()?;
+        *p = rest;
+        n |= ((b & 0x7F) as u32).checked_shl(shift)?;
+        if b < 0x80 {
+            return Some(n);
+        }
+        shift += 7;
+    }
+}
+
+fn cp_set_contains(mut p: &[u8], c: char) -> bool {
+    if p == [0xFF] {
+        return true;
+    }
+    let target = c as u32;
+    let mut prev = 0u32;
+    while let (Some(gap), Some(len)) = (read_varint(&mut p), read_varint(&mut p)) {
+        let Some(start) = prev.checked_add(gap) else {
+            return false;
+        };
+        if target < start {
+            return false;
+        }
+        let Some(end) = start.checked_add(len) else {
+            return false;
+        };
+        if target <= end {
+            return true;
+        }
+        prev = end.saturating_add(1);
+    }
+    false
 }
 
 /// A conversion rule. The source patterns as well as the replacer use inlined private use characters
@@ -197,9 +348,9 @@ pub struct VarTable<'a> {
     /// Segments.
     #[cfg_attr(feature = "serde", serde(borrow))]
     pub segments: VarZeroVec<'a, SegmentULE, Index32>,
-    /// `UnicodeSets`. These are represented as a [`CodePointInversionListAndStringList`](icu_collections::codepointinvliststringlist::CodePointInversionListAndStringList)
+    /// `UnicodeSets`.
     #[cfg_attr(feature = "serde", serde(borrow))]
-    pub unicode_sets: VarZeroVec<'a, CodePointInversionListAndStringListULE, Index32>,
+    pub unicode_sets: VarZeroVec<'a, UnicodeSetULE, Index32>,
     /// Function calls.
     #[cfg_attr(feature = "serde", serde(borrow))]
     pub function_calls: VarZeroVec<'a, FunctionCallULE, Index32>,
@@ -274,4 +425,40 @@ pub struct FunctionCall<'a> {
     #[cfg_attr(feature = "serde", serde(borrow))]
     /// The argument to be transliterated given to the transliterator.
     pub arg: Cow<'a, str>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use icu_collections::codepointinvlist::CodePointInversionListBuilder;
+
+    #[test]
+    fn roundtrip_cp_sets() {
+        assert_eq!(
+            CodePointSet::from_inversion_list(&CodePointInversionList::all()),
+            CodePointSet::all()
+        );
+        assert!(CodePointSet::all().contains('\0'));
+        assert!(CodePointSet::all().contains('\u{10FFFF}'));
+
+        let empty = CodePointInversionListBuilder::new().build();
+        let empty_set = CodePointSet::from_inversion_list(&empty);
+        assert!(empty_set.0.is_empty());
+        assert!(!empty_set.contains('a'));
+
+        let mut b = CodePointInversionListBuilder::new();
+        b.add_char('\u{FF}'); // [0xFF, 0x01, 0x00] must not collide with all() == [0xFF]
+        b.add_range('a'..='z');
+        b.add_char('\u{FFFF}');
+        b.add_char('\u{10FFFF}');
+        let set = CodePointSet::from_inversion_list(&b.build());
+        assert_ne!(set, CodePointSet::all());
+        assert!(set.contains('\u{FF}'));
+        assert!(!set.contains('\u{FE}'));
+        assert!(!set.contains('\u{100}'));
+        assert!(set.contains('a'));
+        assert!(set.contains('z'));
+        assert!(set.contains('\u{FFFF}'));
+        assert!(set.contains('\u{10FFFF}'));
+    }
 }

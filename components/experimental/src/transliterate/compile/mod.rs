@@ -669,18 +669,24 @@ mod tests {
     use std::collections::HashSet;
     use zerovec::{VarZeroVec, vecs::Index32};
 
-    fn parse_set(source: &str) -> parse::UnicodeSet {
-        icu_properties::unicodeset_parse::parse_unstable(source, &icu_properties::provider::Baked)
-            .expect("Parsing failed")
-            .0
+    fn parse_set(source: &str) -> ds::UnicodeSet<'static> {
+        let parsed = icu_properties::unicodeset_parse::parse_unstable(
+            source,
+            &icu_properties::provider::Baked,
+        )
+        .expect("Parsing failed")
+        .0;
+        ds::UnicodeSet::from_inversion_list_and_strings(&parsed)
     }
 
-    fn parse_set_cp(source: &str) -> parse::FilterSet {
-        icu_properties::unicodeset_parse::parse_unstable(source, &icu_properties::provider::Baked)
-            .expect("Parsing failed")
-            .0
-            .code_points()
-            .clone()
+    fn parse_set_cp(source: &str) -> ds::CodePointSet<'static> {
+        let parsed = icu_properties::unicodeset_parse::parse_unstable(
+            source,
+            &icu_properties::provider::Baked,
+        )
+        .expect("Parsing failed")
+        .0;
+        ds::CodePointSet::from_inversion_list(parsed.code_points())
     }
 
     #[test]
@@ -738,7 +744,7 @@ mod tests {
             let expected_filter = parse_set_cp("[1]");
 
             let expected_id_group1 = vec![ds::SimpleId {
-                filter: parse::FilterSet::all(),
+                filter: ds::CodePointSet::all(),
                 id: Cow::Borrowed("x-latin-interindic"),
             }];
             let expected_id_group2 = vec![ds::SimpleId {
@@ -747,11 +753,11 @@ mod tests {
             }];
             let expected_id_group3 = vec![
                 ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSet::all(),
                     id: Cow::Borrowed("x-interindic-devanagari"),
                 },
                 ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSet::all(),
                     id: Cow::Borrowed("any-nfc"),
                 },
             ];
@@ -838,24 +844,24 @@ mod tests {
             );
         }
         {
-            let expected_filter = parse::FilterSet::all();
+            let expected_filter = ds::CodePointSet::all();
 
             let expected_id_group1 = vec![
                 ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSet::all(),
                     id: Cow::Borrowed("any-nfd"),
                 },
                 ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSet::all(),
                     id: Cow::Borrowed("x-devanagari-interindic"),
                 },
                 ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSet::all(),
                     id: Cow::Borrowed("und-t-d0-addrndsp-m0-fifty-s0-anyrev"),
                 },
             ];
             let expected_id_group2 = vec![ds::SimpleId {
-                filter: parse::FilterSet::all(),
+                filter: ds::CodePointSet::all(),
                 id: Cow::Borrowed("x-interindic-latin"),
             }];
 
@@ -906,7 +912,7 @@ mod tests {
             let expected_function_calls = vec![ds::FunctionCall {
                 arg: Cow::Borrowed("\u{F000B}padding"), // $1 and 'padding'
                 translit: ds::SimpleId {
-                    filter: parse::FilterSet::all(),
+                    filter: ds::CodePointSet::all(),
                     id: Cow::Borrowed("x-any-revfncall"),
                 },
             }];

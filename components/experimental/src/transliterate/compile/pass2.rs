@@ -8,7 +8,6 @@ use alloc::borrow::ToOwned;
 use alloc::collections::BTreeMap;
 use alloc::string::ToString;
 use core::fmt::{self, Display, Formatter};
-use icu_collections::codepointinvlist::CodePointInversionList;
 use icu_locale_core::Locale;
 use zerovec::{VarZeroVec, vecs::Index32};
 
@@ -41,7 +40,7 @@ struct MutVarTable {
     quantifiers_kleene: MutVarTableField<String>,
     quantifiers_kleene_plus: MutVarTableField<String>,
     segments: MutVarTableField<ds::Segment<'static>>,
-    unicode_sets: MutVarTableField<parse::UnicodeSet>,
+    unicode_sets: MutVarTableField<ds::UnicodeSet<'static>>,
     function_calls: MutVarTableField<ds::FunctionCall<'static>>,
     left_placeholder_base: u32,
     right_placeholder_base: u32,
@@ -144,7 +143,7 @@ impl MutVarTable {
     impl_insert!(
         insert_unicode_set,
         unicode_sets,
-        parse::UnicodeSet,
+        ds::UnicodeSet<'static>,
         function_calls.base
     );
     impl_insert!(
@@ -274,7 +273,9 @@ impl<'a, 'p> Pass2<'a, 'p> {
             visibility: true,
             filter: pass1
                 .filter
-                .unwrap_or(const { CodePointInversionList::all() }),
+                .as_ref()
+                .map(ds::CodePointSet::from_inversion_list)
+                .unwrap_or(const { ds::CodePointSet::all() }),
             id_group_list: VarZeroVec::from(&compiled_transform_groups),
             rule_group_list: VarZeroVec::from(&compiled_conversion_groups),
             variable_table: pass2.var_table.finalize(),
@@ -361,7 +362,9 @@ impl<'a, 'p> Pass2<'a, 'p> {
                 LiteralOrStandin::Standin(ds::VarTable::RESERVED_ANCHOR_START)
             }
             parse::Element::UnicodeSet(set) => {
-                let standin = self.var_table.insert_unicode_set(set.clone());
+                let standin = self
+                    .var_table
+                    .insert_unicode_set(ds::UnicodeSet::from_inversion_list_and_strings(set));
                 LiteralOrStandin::Standin(standin)
             }
             parse::Element::Segment(inner) => {
@@ -418,7 +421,11 @@ impl<'a, 'p> Pass2<'a, 'p> {
         };
         ds::SimpleId {
             id: string.into(),
-            filter: id.filter.unwrap_or(CodePointInversionList::all()),
+            filter: id
+                .filter
+                .as_ref()
+                .map(ds::CodePointSet::from_inversion_list)
+                .unwrap_or(const { ds::CodePointSet::all() }),
         }
     }
 }

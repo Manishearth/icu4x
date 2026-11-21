@@ -7,7 +7,11 @@
 mod hardcoded;
 mod replaceable;
 
-use crate::transliterate::provider::{FunctionCall, Rule, RuleULE, SimpleId, VarTable};
+#[cfg(feature = "compiled_data")]
+use crate::transliterate::provider::UnicodeSet;
+use crate::transliterate::provider::{
+    CodePointSet, FunctionCall, Rule, RuleULE, SimpleId, UnicodeSetULE, VarTable,
+};
 use crate::transliterate::provider::{RuleBasedTransliterator, Segment, TransliteratorRulesV1};
 use crate::transliterate::transliterator::hardcoded::Case;
 use alloc::borrow::Cow;
@@ -18,7 +22,9 @@ use core::fmt::Debug;
 use core::ops::Range;
 use icu_casemap::CaseMapper;
 use icu_casemap::provider::CaseMapV1;
+#[cfg(feature = "compiled_data")]
 use icu_collections::codepointinvlist::CodePointInversionList;
+#[cfg(feature = "compiled_data")]
 use icu_collections::codepointinvliststringlist::CodePointInversionListAndStringList;
 use icu_locale_core::LanguageIdentifier;
 use icu_locale_core::Locale;
@@ -31,7 +37,7 @@ use zerofrom::ZeroFrom;
 use zerovec::VarZeroSlice;
 use zerovec::vecs::Index32;
 
-type Filter<'a> = CodePointInversionList<'a>;
+type Filter<'a> = CodePointSet<'a>;
 
 // Thought: How about a RunTransliterator trait that is implemented for all internal types, is blanket
 //  implemented for CustomTransliterator, and maybe is exposed to users if they want more control?
@@ -200,7 +206,7 @@ impl Default for TransliteratorBuilder {
             transliterator: DataPayload::from_owned(RuleBasedTransliterator {
                 visibility: false,
                 variable_table: Default::default(),
-                filter: CodePointInversionList::all(),
+                filter: CodePointSet::all(),
                 id_group_list: Default::default(),
                 rule_group_list: Default::default(),
             }),
@@ -265,7 +271,10 @@ impl TransliteratorBuilder {
             });
             rule_group_list.push(&group);
 
-            r.variable_table.unicode_sets.make_mut().push(&matcher);
+            r.variable_table
+                .unicode_sets
+                .make_mut()
+                .push(&UnicodeSet::from_inversion_list_and_strings(&matcher));
         });
 
         self
@@ -369,6 +378,7 @@ impl TransliteratorBuilder {
     }
 
     fn chain(&mut self, filter: CodePointInversionList<'static>, id: Cow<'static, str>) {
+        let filter = CodePointSet::from_inversion_list(&filter);
         self.transliterator.with_mut(|r| {
             r.id_group_list
                 .make_mut()
@@ -1228,7 +1238,7 @@ enum SpecialMatcher<'a> {
     Compound(&'a str),
     Quantifier(QuantifierKind, &'a str),
     Segment(Segment<'a>),
-    UnicodeSet(CodePointInversionListAndStringList<'a>),
+    UnicodeSet(&'a UnicodeSetULE),
     AnchorStart,
     AnchorEnd,
 }
@@ -1250,10 +1260,10 @@ impl SpecialMatcher<'_> {
                 // eprintln!("checking if set {set:?} matches input {matcher:?}");
 
                 if matcher.is_empty() {
-                    if set.contains_str("") {
+                    if set.contains_empty() {
                         return true;
                     }
-                    if set.contains_str("\u{FFFF}") {
+                    if set.contains('\u{FFFF}') {
                         if matcher.match_end_anchor() {
                             return true;
                         }
@@ -1353,10 +1363,10 @@ impl SpecialMatcher<'_> {
                 // eprintln!("checking if set {set:?} reverse matches input {matcher:?}");
 
                 if matcher.is_empty() {
-                    if set.contains_str("") {
+                    if set.contains_empty() {
                         return true;
                     }
-                    if set.contains_str("\u{FFFF}") {
+                    if set.contains('\u{FFFF}') {
                         if matcher.match_end_anchor() {
                             return true;
                         }
@@ -1501,7 +1511,7 @@ enum VarTableElement<'a> {
     Compound(&'a str),
     Quantifier(QuantifierKind, &'a str),
     Segment(Segment<'a>),
-    UnicodeSet(CodePointInversionListAndStringList<'a>),
+    UnicodeSet(&'a UnicodeSetULE),
     FunctionCall(FunctionCall<'a>),
     BackReference(u16),
     AnchorStart,
@@ -1593,9 +1603,7 @@ impl<'a> VarTable<'a> {
         idx -= next_base;
         next_base = self.unicode_sets.len();
         if idx < next_base {
-            return Some(VarTableElement::UnicodeSet(
-                CodePointInversionListAndStringList::zero_from(&self.unicode_sets[idx]),
-            ));
+            return Some(VarTableElement::UnicodeSet(&self.unicode_sets[idx]));
         }
         idx -= next_base;
         next_base = self.function_calls.len();
